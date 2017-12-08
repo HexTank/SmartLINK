@@ -3,8 +3,9 @@
 //
 //  http://www.tavi.co.uk/phobos/fat.html
 //
-//  g++ -std=c++11 main.cpp -o smartsd
-//  clang++ -std=c++11 main.cpp -o smartsd
+//  ( GNUC) g++ -std=c++11 main.cpp -o smartsd
+//  (CLANG) clang++ -std=c++11 main.cpp -o smartsd
+//  ( MSVC) cl /EHsc main.cpp /link /out:smartsd
 //
 // TODO:
 //   error checking

@@ -14,6 +14,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <cstring>
 
 #ifdef _MSC_VER
 #pragma pack(push)

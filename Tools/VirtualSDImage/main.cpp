@@ -18,8 +18,8 @@
 #include <cstring>
 
 #ifdef _MSC_VER
-#pragma pack(push)
-#pragma pack(1)
+	#pragma pack(push)
+	#pragma pack(1)
 #endif
 struct MBR {
 	uint8_t bootstrap_jmp[3];
@@ -43,7 +43,7 @@ struct MBR {
 	uint8_t file_system_id[8];
 }
 #ifdef __GNUC__
-__attribute((packed))
+	__attribute((packed))
 #endif
 _mbr {
 	{ 0, 0, 0 },									// (3)   Part of the bootstrap program. (x86)
@@ -78,7 +78,7 @@ struct Fat16File {
 	uint32_t file_size;
 }
 #ifdef __GNUC__
-__attribute((packed))
+	__attribute((packed))
 #endif
 _files[] = {
 	{
@@ -105,12 +105,27 @@ _files[] = {
 	}
 };
 #ifdef _MSC_VER
-#pragma pack(pop)
+	#pragma pack(pop)
 #endif
 
 int main(int argc, const char * argv[]) {
 	
-	std::vector<uint8_t> sdcard((4 * 512) + (16 * 1024));
+	if(argc != 3)
+	{
+		std::cout << "Usage: " << argv[0] << " input-rom-file output-src-file\n";
+		return 1;
+	}
+		
+	std::ifstream romFile(argv[1], std::ios::binary | std::ios::ate);
+	if(!romFile.good())
+	{
+		std::cout << "Error opening file " << argv[1] << "\n";
+		return 1;
+	}
+	_files[1].file_size = romFile.tellg();
+	romFile.seekg(0, std::ios_base::beg);
+	
+	std::vector<uint8_t> sdcard((4 * _mbr.bytes_per_sector) + _files[1].file_size);
 	
 	// Master boot record.
 	memcpy(sdcard.data(), &_mbr, sizeof(_mbr));
@@ -119,29 +134,28 @@ int main(int argc, const char * argv[]) {
 	sdcard[510] = 0x55;
 	sdcard[511] = 0xAA;
 	
-	// Fat 1 table.
-	sdcard[512] = 0xf0;
-	sdcard[513] = 0xff;
-	sdcard[514] = 0xff;
-	sdcard[515] = 0xff;
-	sdcard[516] = 0xff;		// This is the next cluster for the file, given our cluster is 16K (BytesPerSector(512) * SectorsPerCluster(32))
-	sdcard[517] = 0xff;		// Means next cluster if file size is bigger than one cluster, 0xffff means END.
+	// Calculate cluster chain, should be 0xf0ffffffffff for a 16K ROM.
+	int64_t clusters_remaining = _files[1].file_size / (_mbr.bytes_per_sector * _mbr.sectors_per_cluster);
+	uint16_t next_cluster = 3;
 	
-	// Fat 2 table.
-	sdcard[1024] = 0xf0;
-	sdcard[1025] = 0xff;
-	sdcard[1026] = 0xff;
-	sdcard[1027] = 0xff;
-	sdcard[1028] = 0xff;	// This is the next cluster for the file, given our cluster is 16K (BytesPerSector(512) * SectorsPerCluster(32))
-	sdcard[1029] = 0xff;	// Means next cluster if file size is bigger than one cluster, 0xffff means END.
+	uint16_t *fat1ptr = reinterpret_cast<uint16_t*>(&sdcard[ 512]);
+	uint16_t *fat2ptr = reinterpret_cast<uint16_t*>(&sdcard[1024]);
+	
+	*fat1ptr++ = *fat2ptr++ = 0xfff0;
+	*fat1ptr++ = *fat2ptr++ = 0xffff;
+	while(clusters_remaining--)
+	{
+		*fat1ptr++ = *fat2ptr++ = next_cluster++;
+	}
+	*fat1ptr = *fat2ptr = 0xffff;
 	
 	// Root directory.
 	memcpy(sdcard.data() + 1536, _files, sizeof(_files));
 	
 	// Read ROM into first cluster.
-	std::ifstream romFile(argv[1], std::ios::binary);
 	std::copy(std::istreambuf_iterator<char>(romFile), std::istreambuf_iterator<char>(), sdcard.begin() + 2048);
 	
+
 	// Save out bin2c.
 	std::ofstream output(argv[2], std::ios::trunc);
 	output << "uint8_t virtual_smartlink_sdcard[] = {";
@@ -160,7 +174,10 @@ int main(int argc, const char * argv[]) {
 		}
 	}
 	output << "\n};";
-	
+/*	
+	std::ofstream output(argv[2], std::ios::binary | std::ios::trunc);
+	std::copy(sdcard.begin(), sdcard.end(), std::ostreambuf_iterator<char>(output));
+*/	
 	return 0;
 }
 

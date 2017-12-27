@@ -158,7 +158,7 @@ int main(int argc, const char * argv[]) {
 
 	// Save out bin2c.
 	std::ofstream output(argv[2], std::ios::trunc);
-	output << "uint8_t virtual_smartlink_sdcard[] = {";
+	output << "constexpr uint8_t virtual_smartlink_sdcard[] = {";
 	for (std::vector<uint8_t>::const_iterator it = sdcard.cbegin(); it != sdcard.cend(); ++it)
 	{
 		if (!((it - sdcard.cbegin()) % 16))

@@ -1,11 +1,11 @@
 //
-//  VirtualSDImage for SmartLINK ROM by Paul Tankard
+// VirtualSDImage for SmartLINK ROM by Paul Tankard - 2018
 //
-//  http://www.tavi.co.uk/phobos/fat.html
+// http://www.tavi.co.uk/phobos/fat.html
 //
-//  ( GNUC) g++ -std=c++11 main.cpp -o smartsd
-//  (CLANG) clang++ -std=c++11 main.cpp -o smartsd
-//  ( MSVC) cl /EHsc main.cpp /link /out:smartsd
+// ( GNUC) g++ -std=c++11 main.cpp -o smartsd
+// (CLANG) clang++ -std=c++11 main.cpp -o smartsd
+// ( MSVC) cl /EHsc main.cpp /link /out:smartsd
 //
 // TODO:
 //   error checking

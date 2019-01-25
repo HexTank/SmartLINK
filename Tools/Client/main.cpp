@@ -4,8 +4,8 @@
 //
 //  Created by Paul Tankard on 12/12/2016.
 //
-// clang++ -std=c++11 -I <path_to_ASIO_include_dir> main.cpp -o smartlink
-//
+// ( GNUC) g++ -std=c++11 -I <path_to_ASIO_include_dir> main.cpp -o smartlink -lpthread
+// (CLANG) clang++ -std=c++11 -I <path_to_ASIO_include_dir> main.cpp -o smartlink -lpthread
 //
 #define ASIO_STANDALONE
 

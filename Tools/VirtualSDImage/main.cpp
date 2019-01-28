@@ -5,7 +5,7 @@
 //
 // ( GNUC) g++ -std=c++11 main.cpp -o smartsd
 // (CLANG) clang++ -std=c++11 main.cpp -o smartsd
-// ( MSVC) cl /EHsc main.cpp /link /out:smartsd
+// ( MSVC) cl /EHsc main.cpp /link /out:smartsd.exe
 //
 // TODO:
 //   error checking

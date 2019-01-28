@@ -6,6 +6,7 @@
 //
 // ( GNUC) g++ -std=c++11 -I <path_to_ASIO_include_dir> main.cpp -o smartlink -lpthread
 // (CLANG) clang++ -std=c++11 -I <path_to_ASIO_include_dir> main.cpp -o smartlink -lpthread
+// ( MSVC) cl /EHsc /I <path_to_ASIO_include_dir> -D_WIN32_WINNT=0x0501 main.cpp /link /out:smartlink.exe
 //
 #define ASIO_STANDALONE
 

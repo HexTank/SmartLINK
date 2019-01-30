@@ -172,5 +172,13 @@ bool cmdPacketValid()
     return ((crc << 1) | 1) == cmdpacket[cmdpacket_size-1];
 }
 
-
+uint8_t crc7(const uint8_t *packet, size_t packet_len)
+{
+    uint8_t crc = 0;
+    for (size_t i=0;  i < packet_len; i++)
+    {
+        crc = crc7_table[(crc << 1) ^ packet[i]];
+    }
+    return ((crc << 1) | 1);
+}
 

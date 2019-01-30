@@ -20,8 +20,8 @@ extern "C"
   void __irq_spi1(void);
 }
 
-enum { ZX_IDLE, ZX_RECEIVE_FROM_PC, ZX_SEND_TO_TARGET, ZX_RECEIVE_FROM_TARGET, ZX_SEND_TO_PC, ZX_ACK_TO_PC };  
-volatile int targetState = ZX_IDLE;
+enum { ZX_WAIT_FOR_CLIENT_CONNECT, ZX_IDLE, ZX_RECEIVE_FROM_PC, ZX_SEND_TO_TARGET, ZX_RECEIVE_FROM_TARGET, ZX_SEND_TO_PC, ZX_ACK_TO_PC };  
+volatile int targetState = ZX_WAIT_FOR_CLIENT_CONNECT;
 volatile int targetDataSize = 0;
 volatile int targetDataIndex = 0;
 
@@ -31,10 +31,22 @@ const uint8_t *command_buffer = cmdpacket;
 size_t command_buffer_size = cmdpacket_size;
 size_t command_buffer_index = 0;
 
+inline bool SERIAL_CONNECTED() __attribute__((always_inline));
+bool SERIAL_CONNECTED()
+{
+    return Serial.isConnected() && (Serial.getDTR() || Serial.getRTS() );
+}
+
 inline void LED_ON(bool on) __attribute__((always_inline));
 void LED_ON(bool on)
 { 
-  digitalWrite(33, on ? HIGH : LOW);
+    digitalWrite(33, on ? HIGH : LOW);
+}
+
+inline void LED_TOGGLE() __attribute__((always_inline));
+void LED_TOGGLE()
+{ 
+    digitalWrite(33, !digitalRead(33));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,24 +89,67 @@ void setup()
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void loop()
 {
+    if(!SERIAL_CONNECTED())
+    {
+        targetState = ZX_WAIT_FOR_CLIENT_CONNECT;
+    }
     switch(targetState)
     {
-        case ZX_IDLE:
+        case ZX_WAIT_FOR_CLIENT_CONNECT:
+            while (!SERIAL_CONNECTED())
+            {
+                LED_TOGGLE();
+                delay(500);
+            }
+            while(SERIAL_CONNECTED() && Serial.available() > 0)
+            {
+                Serial.read();
+            }
+            LED_ON(true);
             targetDataSize = 0;
-            while(Serial.available() > 0 && Serial.getDTR() && Serial.getRTS())
+            targetDataIndex = 0;
+            targetState = ZX_IDLE;
+            break;
+
+
+        case ZX_IDLE:
+            // Read input until we get the expected SL packet from the client. (SL packet is 'S' + 'L' + length hi + length lo + crc7)
+            while(targetDataIndex < 5 && SERIAL_CONNECTED() && Serial.available())
             {
                 byte s = Serial.read();
-                targetData[targetDataSize++] = s;
+                targetData[targetDataIndex++] = s;
             }
-            if(targetDataSize > 0)
+            if(targetDataIndex == 5)
             {
+                if(targetData[0] == 'S' && targetData[1] == 'L' && targetData[4] == crc7(targetData, 4))
+                {
+                    targetDataSize = targetData[2] | (targetData[3] << 8);
+                    targetDataIndex = 0;
+                    targetState = ZX_RECEIVE_FROM_PC;
+                }
+            }
+            break;
+
+        case ZX_RECEIVE_FROM_PC:
+            while(targetDataIndex < targetDataSize && SERIAL_CONNECTED() && Serial.available())
+            {
+                byte s = Serial.read();
+                targetData[targetDataIndex++] = s;
+            }
+            if(targetDataIndex == targetDataSize)
+            {
+                //targetState = ZX_ACK_TO_PC;
                 targetDataIndex = 0;
                 targetState = ZX_SEND_TO_TARGET;
             }
+            LED_TOGGLE();
             break;
 
         case ZX_ACK_TO_PC:
             Serial.write((char)0xaa);
+            LED_ON(true);            
+            targetDataSize = 0;
+            targetDataIndex = 0;
             targetState = ZX_IDLE;
             break;
 
@@ -155,7 +210,7 @@ void __irq_spi1(void)
                     }
                     else
                     {
-                        LED_ON(false);
+                        //LED_ON(false);
                         command_buffer = cmdpacket;
                         command_buffer_size = cmdpacket_size;
                         command_buffer_index = 0;
@@ -173,7 +228,7 @@ void __irq_spi1(void)
                 }
                 else
                 {
-                    LED_ON(false);
+                    //LED_ON(false);
                     command_buffer = cmdpacket;
                     command_buffer_size = cmdpacket_size;
                     command_buffer_index = 0;        

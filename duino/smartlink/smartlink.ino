@@ -34,7 +34,7 @@ size_t command_buffer_index = 0;
 inline bool SERIAL_CONNECTED() __attribute__((always_inline));
 bool SERIAL_CONNECTED()
 {
-    return Serial.isConnected() && (Serial.getDTR() || Serial.getRTS() );
+    return Serial && (Serial.getDTR() || Serial.getRTS() );
 }
 
 inline void LED_ON(bool on) __attribute__((always_inline));
@@ -62,10 +62,12 @@ void LED_TOGGLE()
 void setup()
 {
     Serial.begin(115200);
-    while (!Serial) {};
-    while(Serial.available() > 0 && Serial.getDTR() && Serial.getRTS())
+    if (Serial)
     {
-        Serial.read();
+        while(Serial.available() > 0 && Serial.getDTR() && Serial.getRTS())
+        {
+            Serial.read();
+        }
     }
 
     SPI.setModule(1);

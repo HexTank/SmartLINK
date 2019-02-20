@@ -22,10 +22,22 @@ extern "C"
 
 enum { ZX_WAIT_FOR_CLIENT_CONNECT, ZX_IDLE, ZX_RECEIVE_FROM_PC, ZX_SEND_TO_TARGET, ZX_RECEIVE_FROM_TARGET, ZX_SEND_TO_PC, ZX_ACK_TO_PC };  
 volatile int targetState = ZX_WAIT_FOR_CLIENT_CONNECT;
-volatile int targetDataSize = 0;
-volatile int targetDataIndex = 0;
 
-byte targetData[1024*10];
+
+
+// Names might be confusing as we're a conduit, input and output will mean different things.
+uint8_t rambuffer[1024*10];
+
+uint8_t *inputData = rambuffer;
+int inputDataSize = 0;
+int inputDataIndex = 0;
+
+//uint8_t *outputData = rambuffer + (sizeof(*rambuffer) / 2);
+//int outputDataSize = 0;
+//int outputDataIndex = 0;
+
+
+
 
 const uint8_t *command_buffer = cmdpacket;
 size_t command_buffer_size = cmdpacket_size;
@@ -64,7 +76,7 @@ void setup()
     Serial.begin(115200);
     if (Serial)
     {
-        while(Serial.available() > 0 && Serial.getDTR() && Serial.getRTS())
+        while(SERIAL_CONNECTED() && Serial.available() > 0)
         {
             Serial.read();
         }
@@ -107,51 +119,63 @@ void loop()
             {
                 Serial.read();
             }
-            LED_ON(true);
-            targetDataSize = 0;
-            targetDataIndex = 0;
+            LED_ON(false);
+            inputDataSize = 0;
+            inputDataIndex = 0;
             targetState = ZX_IDLE;
             break;
 
 
         case ZX_IDLE:
+            // SL packet format : 
+            //  8 : 0x9f - 'S' + 'L'
+            // 16 : arduino command or data size to send to target, top bit set means arduino command, else data size
+            //  8 : crc7 of previous 4 bytes        
             // Read input until we get the expected SL packet from the client. (SL packet is 'S' + 'L' + length hi + length lo + crc7)
-            while(targetDataIndex < 5 && SERIAL_CONNECTED() && Serial.available())
+            while(inputDataIndex < 4 && SERIAL_CONNECTED() && Serial.available())
             {
                 byte s = Serial.read();
-                targetData[targetDataIndex++] = s;
+                inputData[inputDataIndex++] = s;
             }
-            if(targetDataIndex == 5)
+            if(inputDataIndex == 4)
             {
-                if(targetData[0] == 'S' && targetData[1] == 'L' && targetData[4] == crc7(targetData, 4))
+                if(inputData[0] == ('S' + 'L') && inputData[3] == crc7(inputData, 3))
                 {
-                    targetDataSize = targetData[2] | (targetData[3] << 8);
-                    targetDataIndex = 0;
-                    targetState = ZX_RECEIVE_FROM_PC;
+                    inputDataIndex = 0;
+                    const uint16_t transactionData = inputData[1] | (inputData[2] << 8);
+                    if (transactionData & 0x8000)
+                    {
+                        // Arduino command
+                    }
+                    else
+                    {
+                        // Transmit payload to target
+                        LED_ON(true);
+                        inputDataSize = transactionData;
+                        targetState = ZX_RECEIVE_FROM_PC;                   
+                    }                       
                 }
             }
             break;
 
         case ZX_RECEIVE_FROM_PC:
-            while(targetDataIndex < targetDataSize && SERIAL_CONNECTED() && Serial.available())
+            if(SERIAL_CONNECTED() && Serial.available())
             {
-                byte s = Serial.read();
-                targetData[targetDataIndex++] = s;
+                inputDataIndex += Serial.readBytes(reinterpret_cast<char*>(inputData + inputDataIndex), inputDataSize - inputDataIndex);
+                if(inputDataIndex == inputDataSize)
+                {
+                    inputDataIndex = 0;
+                    targetState = ZX_SEND_TO_TARGET;
+                }
+                LED_TOGGLE();
             }
-            if(targetDataIndex == targetDataSize)
-            {
-                //targetState = ZX_ACK_TO_PC;
-                targetDataIndex = 0;
-                targetState = ZX_SEND_TO_TARGET;
-            }
-            LED_TOGGLE();
             break;
 
         case ZX_ACK_TO_PC:
             Serial.write((char)0xaa);
             LED_ON(true);            
-            targetDataSize = 0;
-            targetDataIndex = 0;
+            inputDataSize = 0;
+            inputDataIndex = 0;
             targetState = ZX_IDLE;
             break;
 
@@ -206,8 +230,8 @@ void __irq_spi1(void)
                     if(targetState==ZX_SEND_TO_TARGET)
                     {
                         LED_ON(true);
-                        command_buffer = targetData;
-                        command_buffer_size = targetDataSize;
+                        command_buffer = inputData;
+                        command_buffer_size = inputDataSize;
                         command_buffer_index = 0;
                     }
                     else

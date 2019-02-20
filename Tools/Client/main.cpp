@@ -103,7 +103,10 @@ public:
 			return;
 		}
 		asio::serial_port_base::baud_rate baud_option(115200);
+		asio::serial_port_base::flow_control flow_control(asio::serial_port::flow_control::none);
 		serialPort.set_option(baud_option);
+		serialPort.set_option(flow_control);
+
 		read_start();
 	}
 	
@@ -210,8 +213,7 @@ private:
 shared_ptr<vector<uint8_t>> make_payload(uint8_t code, uint16_t location, uint16_t length)
 {
 	shared_ptr<vector<uint8_t>> payload(new vector<uint8_t>);
-	payload->push_back('S');
-	payload->push_back('L');
+	payload->push_back('S' + 'L');
 	payload->push_back(length+6);
 	payload->push_back((length+6)>>8);
 	payload->push_back(crc7(payload->data(), payload->size()));
@@ -284,18 +286,16 @@ int main(int argc, const char * argv[])
 {
 	try
 	{
-		/*
 		if (argc != 2)
 		{
 			cerr << "Usage: " << argv[0] << " <device>\n";
 			return 1;
 		}
-		 */
 		
 		shared_ptr<asio::io_service> io_service( new asio::io_service );
 		shared_ptr<asio::io_service::work> work( new asio::io_service::work(*io_service));
 		
-		smartlink_serial c(io_service, "/dev/cu.usbmodemFA131");
+		smartlink_serial c(io_service, argv[1]);
 		thread t([&]{ io_service->run(); });
 
 		while (c.active())

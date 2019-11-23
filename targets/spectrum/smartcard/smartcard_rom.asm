@@ -122,30 +122,30 @@ irq_offb
 ;
 ;---------------------------------------------------------------------------------------------
 start:		
-		di
-		im		1
-    	ld		a,$3f
-    	ld		i,a
-		ld		sp, sram_stack
-	
-		ld		bc, sram_bank_port
-  		ld		a,$80
-		out		(c),a				; enable SRAM at $2000, use page 0
+        di
+        im      1
+        ld      a,$3f
+        ld      i,a
+        ld      sp, sram_stack
+        
+        ld      bc, sram_bank_port
+        ld      a,$80
+        out     (c),a               ; enable SRAM at $2000, use page 0
+        
+        ld      a,1
+        out     (254),a
+        call    show_logo
+        ld      a,6
+        out     (254),a
+        
+        call    init_scroll
+        im      1
+        ei
+_lop:   halt
 
-		ld		a,1
-		out 	(254), a
-		call 	show_logo
-		ld 		a,6
-		out 	(254), a
-
-		call	init_scroll
-		im		 1
-		ei
-_lop:	halt
-
-		call	update_scroll
-		call	intr
-		jr		_lop
+        call    update_scroll
+        call    intr
+        jr      _lop
 
 
 ;---------------------------------------------------------------------------------------------

@@ -12,6 +12,7 @@ spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
 sinclair_rom_bank   equ 14
+switch_out_rom      equ 1
 
 sram_loc            equ $2000
 sram_stack          equ sram_loc+$1f40
@@ -50,12 +51,20 @@ sram_stack          equ sram_loc+$1f40
 ;
 ;
 ;---------------------------------------------------------------------------------------------
+
 restart_snapshot:
-        ld      bc,rom_select_port  ; set the swap-ROM bit (waits for read from addr $xx72)
-        in      a,(c)
-        or      $40
-        out     (c),a
-        
+        if switch_out_rom
+                ld      bc,rom_select_port  ; set the swap-ROM bit (waits for read from addr $xx72)
+                in      a,(c)
+                or      $40
+                out     (c),a
+        else        
+                ; push the following opcode to the begining of video memory so when we execute we patch out our ROM.
+                ld      hl,rst_code_begin
+	            ld      de,$4000
+	            ld      bc,rst_code_end-rst_code_begin
+	            ldir
+        endif
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
         halt                        ; (to absorb any pending IRQ)
         di
@@ -96,23 +105,26 @@ not_im2b
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
         ei                          ; Enable interrupts before restart
-        jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
-
+        if switch_out_rom
+                jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
+        else
+                jr      rdy
+        endif
 irq_offb	
         ld      sp,sna_header+21    ; AF reg
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
-        jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)	
-
-;rdy: ; swapping out to  real spectrum ROM mean we can no longer page in, so try and use a mirror of the spectrum ROM
-;        push    bc
-;        push    af
-;        ld      bc,rom_select_port
-;        ld      a,sinclair_rom_bank
-;        out     (c),a
-;        pop     af
-;        pop     bc
-;        retn 
+        if switch_out_rom
+                jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
+        else
+rdy:    
+                ; swapping out to  real spectrum ROM mean we can no longer page in, so try and use a mirror of the spectrum ROM
+                push    af
+                push    bc
+                ld      bc,rom_select_port
+                ld      a,sinclair_rom_bank
+                jp      $4000
+        endif
         
 ;---------------------------------------------------------------------------------------------
 ;
@@ -448,7 +460,12 @@ zx7_decode:
 slink_image:
         incbin  "smartlink.scr.zx7"
 
-
+rst_code_begin:   
+        db      $ed, $79                ; out (c),a
+        db      $c1                     ; pop bc
+        db      $f1                     ; pop af
+        db      $ed, $45                ; retn
+rst_code_end:
 
 sd_request_work:
         db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$00,$00,$00,$00,$33     ; first 8 bytes is data flush, 6 bytes after is actual payload

@@ -32,7 +32,7 @@ The spectrum assembly files will require Pasmo.
 Steps to get all the files on to the SmartLINK hardware.
 
 1. Make sure you have compiled all the projects in the tools folder.
-1. Compile your target`s ROM file if it has one and create a virtual image file with the VirtualSDImage tool.
+1. Compile your target's ROM file if it has one and create a virtual image file with the VirtualSDImage tool.
 1. Open the Arduino project in Arduino, compile and send to the SmartLink device.
 
 

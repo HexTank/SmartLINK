@@ -12,10 +12,11 @@ spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
 sinclair_rom_bank   equ 14
-switch_out_rom      equ 1
+switch_out_rom      equ 0
 
 sram_loc            equ $2000
-sram_stack          equ sram_loc+$1f40
+sram_stack          equ sram_loc+$1000
+comm_stack          equ sram_loc+$1800
 
 ;---------------------------------------------------------------------------------------------
 
@@ -104,13 +105,15 @@ not_im2b
         ld      sp,sna_header+21    ; AF reg
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
-        ei                          ; Enable interrupts before restart
         if switch_out_rom
+                ei                          ; Enable interrupts before restart
                 jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
         else
                 jr      rdy
         endif
-irq_offb	
+irq_offb
+        ld      a,$f3
+        ld      (rst_code_ei), a    ; di
         ld      sp,sna_header+21    ; AF reg
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
@@ -121,11 +124,15 @@ rdy:
                 ; swapping out to  real spectrum ROM mean we can no longer page in, so try and use a mirror of the spectrum ROM
                 push    af
                 push    bc
+                ld      bc,sram_bank_port
+                in      a,(c)
+                and     $70
+                out     (c),a
                 ld      bc,rom_select_port
                 ld      a,sinclair_rom_bank
                 jp      $4000
         endif
-        
+    
 ;---------------------------------------------------------------------------------------------
 ;
 ;
@@ -144,11 +151,7 @@ start:
         ld      a,$80
         out     (c),a               ; enable SRAM at $2000, use page 0
         
-        ld      a,1
-        out     (254),a
         call    show_logo
-        ld      a,6
-        out     (254),a
         
         call    init_scroll
         im      1
@@ -182,44 +185,35 @@ read_packet_pointers:
 
 
 intr:
-        push    hl
-        push    de
         push    af
         push    bc
-        
-        ld      a,0
-        out     (254),a
-        
         ld      bc,sram_bank_port
         in      a,(c)
         push    af                  ; save current sram settings so we can restore later
         ld      a,$80
         out 	(c),a               ; enable SRAM at $2000, use page 0
+        ld      (saved_sp),sp
+        ld      sp,comm_stack        
         
         call    spi_on
-_redo:
+        ld      d,0
+_redo:  push    de
+
         call    request_work
 _have_response:
-        and     7
-        out     (254),a
         call    spi_read_write
         cp      $ff
         jr      nz, _ndone
+        pop     de
         jp      _done
 _ndone:
         cp      $fe
         jr      nz, _have_response
         
-        ld      a,2
-        out     (254),a
-        
         call    spi_read_write
         cp      $a0
         jr      nz, _not_reg_xfer
-        
         ; do reg xfer
-        ld      a,4
-        out     (254),a
         call    read_packet_pointers
         ld      hl, sna_header
         call    bulk_read_from_spi
@@ -227,50 +221,49 @@ _ndone:
         call    spi_read_write
         call    spi_read_write
         call    ack_work
+        pop     de
+        ld      d,1
         jr      _done
-_not_reg_xfer:
 
+_not_reg_xfer:
         cp      $aa
         jr      nz, _not_bulk_xfer
-        
         ; do bulk xfer
-        ld      a,5
-        out     (254),a
         call    read_packet_pointers
         call    bulk_read_from_spi
         call    spi_read_write
         call    spi_read_write
         call    spi_read_write
         call    ack_work
+        pop     de
+        ld      d,1
         jr		_done
-_not_bulk_xfer:
 
+_not_bulk_xfer:
         cp      $80
-        jr      nz, _done           ; not start game
-        
-        ld      a,6
-        out     (254),a
+        jr      nz, _not_start_game
         call    read_packet_pointers
         call    ack_work
         call    spi_read_write
         call    spi_read_write
         call    spi_read_write
         jp      restart_snapshot
+_not_start_game:
+        pop     de
 
 _done:	
-        ld      a,7
-        out     (254),a
+        ld      a,d
+        or      a
+        jp      nz,_redo
         
+        call    spi_off
+
+        ld      sp,(saved_sp)
         ld      bc, sram_bank_port
         pop     af                  ; restore sram settings
         out     (c),a               ; enable SRAM at $2000, use page 0
-        
-        call    spi_off
-        
         pop     bc
         pop     af
-        pop     de
-        pop     hl
         ret
 
 ;---------------------------------------------------------------------------------------------
@@ -324,9 +317,7 @@ bulk_read_from_spi:
         inc     e					
 _loop   ini 				
         inc     b 	
-        and     7				
         out     (c),a
-        out     (254),a 				
         dec     e					
         jp      nz,_loop			
         
@@ -441,7 +432,6 @@ scrollrow:
         
         ret
 
-
 ;---------------------------------------------------------------------------------------------
 ;
 ;
@@ -464,6 +454,8 @@ rst_code_begin:
         db      $ed, $79                ; out (c),a
         db      $c1                     ; pop bc
         db      $f1                     ; pop af
+rst_code_ei:
+        db      $fb                     ; ei
         db      $ed, $45                ; retn
 rst_code_end:
 
@@ -475,7 +467,10 @@ sd_ack:
 
 org sram_loc:
         org     ($+255) & $ff00
-	
+
+saved_sp:
+        dw      0
+        	
 sna_header:
         ds      32,0        ;this MUST be located at start of a page so that there's no Read @ $xx72
 tempchar:

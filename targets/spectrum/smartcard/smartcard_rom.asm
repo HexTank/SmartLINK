@@ -470,7 +470,7 @@ rst_bc_val: db      $00, $00    ;         ,xxxx
 rst_a_val:  db      $00         ;         xx
 rst_ei_val: db      $fb         ; ei
             db      $ed, $45    ; retn
-rst_end:    db      $00         ; intentially after rst_end - used to store byte needed to disable sram without affecting flags later on.
+rst_end:    db      $00         ; intentionally after rst_end - used to store byte needed to disable sram without affecting flags later on.
 
 ; --------------------------------------------------------------------------------------------
 

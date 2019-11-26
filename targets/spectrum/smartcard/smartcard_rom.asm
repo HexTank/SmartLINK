@@ -12,7 +12,7 @@ spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
 sinclair_rom_bank   equ 14
-switch_out_rom      equ 1
+switch_out_rom      equ 0
 screen_mem          equ $4000
 
 sram_loc            equ $2000
@@ -66,6 +66,11 @@ restart_snapshot:
 	            ld      de,screen_mem
 	            ld      bc,rst_end-rst_begin
 	            ldir
+                ; store of the value needed to switch off sram
+                ld      bc,sram_bank_port
+                in      a,(c)
+                and     $70
+                ld      (rst_end),a
         endif
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
         halt                        ; (to absorb any pending IRQ)
@@ -127,11 +132,10 @@ irq_offb
 rdy:    
                 ; swapping out to  real spectrum ROM mean we can no longer page in, so try and use a mirror of the spectrum ROM
                 ; and copy some restoration code at the start of vmem to put the snapshot in the state it expects before execution.
-                ld      (rst_bc_val - rst_begin + screen_mem), bc
-                ld      (rst_a_val - rst_begin + screen_mem), a
+                ld      ((rst_bc_val - rst_begin) + screen_mem), bc
+                ld      ((rst_a_val - rst_begin) + screen_mem), a
                 ld      bc,sram_bank_port
-                in      a,(c)
-                and     $70
+                ld      a,(rst_end)
                 out     (c),a
                 ld      bc,rom_select_port
                 ld      a,sinclair_rom_bank
@@ -466,7 +470,7 @@ rst_bc_val: db      $00, $00    ;         ,xxxx
 rst_a_val:  db      $00         ;         xx
 rst_ei_val: db      $fb         ; ei
             db      $ed, $45    ; retn
-rst_end:
+rst_end:    db      $00         ; intentially after rst_end - used to store byte needed to disable sram without affecting flags later on.
 
 ; --------------------------------------------------------------------------------------------
 

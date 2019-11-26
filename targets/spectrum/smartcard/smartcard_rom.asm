@@ -12,7 +12,8 @@ spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
 sinclair_rom_bank   equ 14
-switch_out_rom      equ 0
+switch_out_rom      equ 1
+screen_mem          equ $4000
 
 sram_loc            equ $2000
 sram_stack          equ sram_loc+$1000
@@ -61,9 +62,9 @@ restart_snapshot:
                 out     (c),a
         else        
                 ; push the following opcode to the begining of video memory so when we execute we patch out our ROM.
-                ld      hl,rst_code_begin
-	            ld      de,$4000
-	            ld      bc,rst_code_end-rst_code_begin
+                ld      hl,rst_begin
+	            ld      de,screen_mem
+	            ld      bc,rst_end-rst_begin
 	            ldir
         endif
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
@@ -112,8 +113,11 @@ not_im2b
                 jr      rdy
         endif
 irq_offb
-        ld      a,$f3
-        ld      (rst_code_ei), a    ; di
+        if !switch_out_rom
+            ld      a,$f3
+            ld      (rst_ei_val - rst_begin + screen_mem),a    ; di
+        endif
+
         ld      sp,sna_header+21    ; AF reg
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
@@ -122,8 +126,9 @@ irq_offb
         else
 rdy:    
                 ; swapping out to  real spectrum ROM mean we can no longer page in, so try and use a mirror of the spectrum ROM
-                push    af
-                push    bc
+                ; and copy some restoration code at the start of vmem to put the snapshot in the state it expects before execution.
+                ld      (rst_bc_val - rst_begin + screen_mem), bc
+                ld      (rst_a_val - rst_begin + screen_mem), a
                 ld      bc,sram_bank_port
                 in      a,(c)
                 and     $70
@@ -450,14 +455,20 @@ zx7_decode:
 slink_image:
         incbin  "smartlink.scr.zx7"
 
-rst_code_begin:   
-        db      $ed, $79                ; out (c),a
-        db      $c1                     ; pop bc
-        db      $f1                     ; pop af
-rst_code_ei:
-        db      $fb                     ; ei
-        db      $ed, $45                ; retn
-rst_code_end:
+; --------------------------------------------------------------------------------------------
+; -- Code to be placed at the top of vmem for restoring snapshot registers before execution
+; --------------------------------------------------------------------------------------------
+
+rst_begin:  db      $ed, $79    ; out   (c),a
+            db      $01         ; ld    bc
+rst_bc_val: db      $00, $00    ;         ,xxxx
+            db      $3e         ; ld    a,
+rst_a_val:  db      $00         ;         xx
+rst_ei_val: db      $fb         ; ei
+            db      $ed, $45    ; retn
+rst_end:
+
+; --------------------------------------------------------------------------------------------
 
 sd_request_work:
         db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$00,$00,$00,$00,$33     ; first 8 bytes is data flush, 6 bytes after is actual payload

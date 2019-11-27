@@ -13,7 +13,7 @@ Currently, the project supports the following devices :
 
 #### Client Software Setup
 
-You will need to follow the instructions [here](https://github.com/rogerclarkmelbourne/Arduino_STM32/wiki/Installation "here"), but instead of downloading the linked STM32 files zip from there, download it from [here](https://github.com/HexTank/Arduino_STM32 "here") instead, as this is a known working branch.
+You will need to follow the instructions [here](https://github.com/rogerclarkmelbourne/Arduino_STM32/wiki/Installation "here") and follow the guide for setting up a Maple Mini.
 
 The project will eventually migrate to the official STM branch once Maple Mini SPI support is stable.
 

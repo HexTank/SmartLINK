@@ -339,7 +339,7 @@ _loop   ini
         ret
 
 request_work:
-        ld      hl, sd_request_work
+        ld      hl, sd_req
         ld      b,14
         jr      work_loop
 ack_work:
@@ -443,59 +443,51 @@ scrollrow:
 
 ;---------------------------------------------------------------------------------------------
 ;
-;
-;
-;
-;
 ;---------------------------------------------------------------------------------------------
-message:
-        db      "SmartLINK Loader V0.3....   ",0
-font:
-        incbin  "aquaplane.fnt"
-
 zx7_decode:
-        include "dzx7_mega.asm"
+                include "dzx7_mega.asm"
 
-slink_image:
-        incbin  "smartlink.scr.zx7"
+;---------------------------------------------------------------------------------------------
+; ROM data
+;---------------------------------------------------------------------------------------------
+message:        db      "SmartLINK Loader V0.3....   ",0
+font:           incbin  "aquaplane.fnt"
+slink_image:    incbin  "smartlink.scr.zx7"
 
 ; --------------------------------------------------------------------------------------------
 ; -- Code to be placed at the top of vmem for restoring snapshot registers before execution
 ; --------------------------------------------------------------------------------------------
 
-rst_begin:  db      $ed, $79    ; out   (c),a
-            db      $01         ; ld    bc
-rst_bc_val: db      $00, $00    ;         ,xxxx
-            db      $3e         ; ld    a,
-rst_a_val:  db      $00         ;         xx
-rst_ei_val: db      $fb         ; ei
-            db      $ed, $45    ; retn
-rst_end:    db      $00         ; intentionally after rst_end - used to store byte needed to disable sram without affecting flags later on.
+rst_begin:      db      $ed, $79    ; out   (c),a
+                db      $01         ; ld    bc
+rst_bc_val:     db      $00, $00    ;         ,xxxx
+                db      $3e         ; ld    a,
+rst_a_val:      db      $00         ;         xx
+rst_ei_val:     db      $fb         ; ei
+                db      $ed, $45    ; retn
+rst_end:
 
 ; --------------------------------------------------------------------------------------------
 
-sd_request_work:
-        db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$00,$00,$00,$00,$33     ; first 8 bytes is data flush, 6 bytes after is actual payload
-sd_ack:		
-        db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$01,$00,$00,$00,$35     ; first 8 bytes is data flush, 6 bytes after is actual payload
+sd_req:         db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$00,$00,$00,$00,$33     ; first 8 bytes is data flush, 6 bytes after is actual payload
+sd_ack:         db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$01,$00,$00,$00,$35     ; first 8 bytes is data flush, 6 bytes after is actual payload
 
+; --------------------------------------------------------------------------------------------
+; SRAM data
+; --------------------------------------------------------------------------------------------
 
 org sram_loc:
-        org     ($+255) & $ff00
+                org     ($+255) & $ff00
 
-saved_sp:
-        dw      0
+saved_sp:       dw      0
         	
-sna_header:
-        ds      32,0        ;this MUST be located at start of a page so that there's no Read @ $xx72
-tempchar:
-        ds      8,0
+sna_header:     ds      32,0        ;this MUST be located at start of a page so that there's no Read @ $xx72
+tempchar:       ds      8,0
+scroll_pos:     dw      0,0
+pix_count:      db      0,0
+sram_restore:   db      $00         ; intentionally after rst_end - used to store byte needed to disable sram without affecting flags later on.
 
-	
-scroll_pos: 
-        dw      0,0
-pix_count:  
-        db      0,0
+; --------------------------------------------------------------------------------------------
 
-        org     $3fff
-        db      0           ;pad to end of ROM
+                org     $3fff
+                db      0           ;pad to end of ROM

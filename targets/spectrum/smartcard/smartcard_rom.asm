@@ -449,7 +449,7 @@ scrollrow:
 ;
 ;---------------------------------------------------------------------------------------------
 message:
-        db      "SmartLINK Loader....   ",0
+        db      "SmartLINK Loader V0.3....   ",0
 font:
         incbin  "aquaplane.fnt"
 

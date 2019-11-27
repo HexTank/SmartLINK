@@ -161,7 +161,7 @@ void loop()
         case ZX_RECEIVE_FROM_PC:
             if(SERIAL_CONNECTED() && Serial.available())
             {
-                inputDataIndex += Serial.readBytes(inputData + inputDataIndex, inputDataSize - inputDataIndex);
+                inputDataIndex += Serial.readBytes(reinterpret_cast<char*>(inputData + inputDataIndex), inputDataSize - inputDataIndex);
                 if(inputDataIndex == inputDataSize)
                 {
                     inputDataIndex = 0;

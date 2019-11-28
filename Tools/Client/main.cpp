@@ -226,6 +226,41 @@ shared_ptr<vector<uint8_t>> make_payload(uint8_t code, uint16_t location, uint16
 	return payload;
 }
 
+
+
+vector<shared_ptr<vector<uint8_t>>> send_file(string file_to_load, int spectrumAddress)
+{
+    vector<shared_ptr<vector<uint8_t>>> payloads;
+
+    ifstream file(file_to_load, ios::binary | ios::ate);
+    vector<char> fileData(file.tellg());
+    file.seekg(0, ios::beg);
+    file.read(fileData.data(), fileData.size());
+
+    int fileIndex = 0;
+    shared_ptr<vector<uint8_t>> payload;
+
+    const int blocksize = 9000;
+    const int transferAmount = fileData.size();
+    for (int block = 0; block < transferAmount / blocksize; ++block)
+    {
+        payload = make_payload(0xaa, spectrumAddress, blocksize);
+        payload->insert(std::end(*payload), std::begin(fileData) + fileIndex, std::begin(fileData) + fileIndex + blocksize);
+        payloads.push_back(payload);
+        fileIndex += blocksize;
+        spectrumAddress += blocksize;
+    }
+    if (transferAmount%blocksize)
+    {
+        payload = make_payload(0xaa, spectrumAddress, transferAmount%blocksize);
+        payload->insert(std::end(*payload), std::begin(fileData) + fileIndex, std::begin(fileData) + fileIndex + (transferAmount%blocksize));
+        payloads.push_back(payload);
+    }
+    return payloads;
+}
+
+
+
 vector<shared_ptr<vector<uint8_t>>> send_snapshot( string snapshot_to_load )
 {
 	vector<shared_ptr<vector<uint8_t>>> payloads;
@@ -327,6 +362,17 @@ int main(int argc, const char * argv[])
             if(s=="reset")
             {
                 c.write(make_smartlink_action(1));
+            }
+            if (s == "data")
+            {
+                string file_to_load;
+                int address;
+                cin >> file_to_load >> address;
+                vector<shared_ptr<vector<uint8_t>>> payloads = send_file(file_to_load, address);
+                for (auto payload : payloads)
+                {
+                    c.write(payload);
+                }
             }
 		}
 		c.close();

@@ -245,7 +245,6 @@ _not_reg_xfer:
         call    spi_read_write
         call    ack_work
         pop     de
-        ld      d,1
         jr		_done
 
 _not_bulk_xfer:

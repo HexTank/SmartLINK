@@ -88,6 +88,7 @@ void setup()
 
     pinMode(32, INPUT);
     pinMode(33, OUTPUT);
+    pinMode(20, INPUT);
     LED_ON(false);
 }
 
@@ -146,6 +147,17 @@ void loop()
                     if (transactionData & 0x8000)
                     {
                         // Arduino command
+                        switch  (transactionData & 0x7fff)
+                        {
+                          case 1:
+                            LED_ON(false);
+                            pinMode(20, OUTPUT);
+                            digitalWrite(20, LOW);
+                            delay(1000);
+                            pinMode(20, INPUT);
+                            LED_ON(true);
+                            break;
+                        }
                     }
                     else
                     {

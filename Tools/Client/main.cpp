@@ -126,6 +126,14 @@ public:
         });
     }
 
+    void wait()
+    {
+        io_service->post([this]()
+        {
+            std::cout << "Done!" << std::endl;
+        });
+    }
+
     bool active()
     {
         return active_;
@@ -146,6 +154,10 @@ private:
                 {
                     cout << "Start next write" << endl;
                     write_start();
+                }
+                if (write_msgs_.empty())
+                {
+                    std::cout << "All done!" << std::endl;
                 }
                 read_start();
             }
@@ -171,8 +183,10 @@ private:
             if (!error)
             {
                 write_msgs_.pop_front();
-                //				if (!write_msgs_.empty())
-                //					write_start();
+                if (!write_msgs_.empty())
+                {
+                    std::cout << "Finished writing." << std::endl;
+                }
             }
             else
                 do_close(error);
@@ -366,6 +380,7 @@ int main(int argc, const char * argv[])
                 {
                     c.write(payload);
                 }
+                c.wait();
             }
             if (s == "reset")
             {

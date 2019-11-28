@@ -227,6 +227,14 @@ shared_ptr<vector<uint8_t>> make_payload(uint8_t code, uint16_t location, uint16
 }
 
 
+shared_ptr<vector<uint8_t>> send_string(string string_to_load, int spectrumAddress)
+{
+    shared_ptr<vector<uint8_t>> payload = make_payload(0xaa, spectrumAddress, string_to_load.size() + 1);
+    payload->insert(std::end(*payload), std::begin(string_to_load), std::end(string_to_load));
+    payload->push_back(0);
+    return payload;
+}
+
 
 vector<shared_ptr<vector<uint8_t>>> send_file(string file_to_load, int spectrumAddress)
 {
@@ -373,6 +381,13 @@ int main(int argc, const char * argv[])
                 {
                     c.write(payload);
                 }
+            }
+            if (s == "string")
+            {
+                string string_to_load;
+                int address;
+                cin >> string_to_load >> address;
+                c.write(send_string(string_to_load, address));
             }
         }
         c.close();

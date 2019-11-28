@@ -88,6 +88,7 @@ void setup()
 
     pinMode(32, INPUT);
     pinMode(33, OUTPUT);
+    pinMode(20, INPUT);
     LED_ON(false);
 }
 
@@ -146,6 +147,17 @@ void loop()
                     if (transactionData & 0x8000)
                     {
                         // Arduino command
+                        switch  (transactionData & 0x7fff)
+                        {
+                          case 1:
+                            LED_ON(false);
+                            pinMode(20, OUTPUT);
+                            digitalWrite(20, LOW);
+                            delay(1000);
+                            pinMode(20, INPUT);
+                            LED_ON(true);
+                            break;
+                        }
                     }
                     else
                     {
@@ -161,7 +173,7 @@ void loop()
         case ZX_RECEIVE_FROM_PC:
             if(SERIAL_CONNECTED() && Serial.available())
             {
-                inputDataIndex += Serial.readBytes(inputData + inputDataIndex, inputDataSize - inputDataIndex);
+                inputDataIndex += Serial.readBytes(reinterpret_cast<char*>(inputData + inputDataIndex), inputDataSize - inputDataIndex);
                 if(inputDataIndex == inputDataSize)
                 {
                     inputDataIndex = 0;

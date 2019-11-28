@@ -271,6 +271,16 @@ vector<shared_ptr<vector<uint8_t>>> send_snapshot( string snapshot_to_load )
 	return payloads;
 }
 
+shared_ptr<vector<uint8_t>> make_smartlink_action(uint16_t code)
+{
+    shared_ptr<vector<uint8_t>> payload(new vector<uint8_t>);
+    payload->push_back('S' + 'L');
+    payload->push_back(code);
+    payload->push_back((code >> 8) | 0x80);
+    payload->push_back(crc7(payload->data(), payload->size()));
+    return payload;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //
@@ -314,6 +324,10 @@ int main(int argc, const char * argv[])
 					c.write(payload);
 				}
 			}
+            if(s=="reset")
+            {
+                c.write(make_smartlink_action(1));
+            }
 		}
 		c.close();
 		t.join();

@@ -129,9 +129,9 @@ void loop()
 
         case ZX_IDLE:
             // SL packet format : 
-            //  8 : 0x9f - 'S' + 'L'
-            // 16 : arduino command or data size to send to target, top bit set means arduino command, else data size
-            //  8 : crc7 of previous 4 bytes        
+            //  8bit : 0x9f - 'S' + 'L'
+            // 16bit : arduino command or data size to send to target, top bit set means arduino command, else data size
+            //  8bit : crc7 of previous 3 bytes        
             // Read input until we get the expected SL packet from the client. (SL packet is 'S' + 'L' + length hi + length lo + crc7)
             while(inputDataIndex < 4 && SERIAL_CONNECTED() && Serial.available())
             {

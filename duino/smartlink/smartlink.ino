@@ -139,7 +139,7 @@ void loop()
                 inputData[inputDataIndex++] = s;
             }
             if(inputDataIndex == 4)
-            {
+            {                
                 if(inputData[0] == ('S' + 'L') && inputData[3] == crc7(inputData, 3))
                 {
                     inputDataIndex = 0;
@@ -150,12 +150,11 @@ void loop()
                         switch  (transactionData & 0x7fff)
                         {
                           case 1:
-                            LED_ON(false);
                             pinMode(20, OUTPUT);
                             digitalWrite(20, LOW);
-                            delay(1000);
+                            delay(250);
                             pinMode(20, INPUT);
-                            LED_ON(true);
+                            Serial.write((char)0xaa);
                             break;
                         }
                     }

@@ -24,7 +24,33 @@
 #include "asio/detail/push_options.hpp"
 
 namespace asio {
+
+class executor;
+
 namespace detail {
+
+inline bool is_native_io_executor(const io_context::executor_type&)
+{
+  return true;
+}
+
+template <typename Executor>
+inline bool is_native_io_executor(const Executor&,
+    typename enable_if<!is_same<Executor, executor>::value>::type* = 0)
+{
+  return false;
+}
+
+template <typename Executor>
+inline bool is_native_io_executor(const Executor& ex,
+    typename enable_if<is_same<Executor, executor>::value>::type* = 0)
+{
+#if !defined (ASIO_NO_TYPEID)
+  return ex.target_type() == typeid(io_context::executor_type);
+#else // !defined (ASIO_NO_TYPEID)
+  return false;
+#endif // !defined (ASIO_NO_TYPEID)
+}
 
 template <typename IoObjectService,
     typename Executor = io_context::executor_type>
@@ -45,9 +71,8 @@ public:
 
   // Construct an I/O object using an executor.
   explicit io_object_impl(const executor_type& ex)
-    : executor_(ex),
-      service_(&asio::use_service<IoObjectService>(ex.context())),
-      has_native_impl_(is_same<Executor, io_context::executor_type>::value)
+    : service_(&asio::use_service<IoObjectService>(ex.context())),
+      implementation_executor_(ex, (is_native_io_executor)(ex))
   {
     service_->construct(implementation_);
   }
@@ -57,9 +82,9 @@ public:
   explicit io_object_impl(ExecutionContext& context,
       typename enable_if<is_convertible<
         ExecutionContext&, execution_context&>::value>::type* = 0)
-    : executor_(context.get_executor()),
-      service_(&asio::use_service<IoObjectService>(context)),
-      has_native_impl_(is_same<ExecutionContext, io_context>::value)
+    : service_(&asio::use_service<IoObjectService>(context)),
+      implementation_executor_(context.get_executor(),
+        is_same<ExecutionContext, io_context>::value)
   {
     service_->construct(implementation_);
   }
@@ -67,9 +92,8 @@ public:
 #if defined(ASIO_HAS_MOVE)
   // Move-construct an I/O object.
   io_object_impl(io_object_impl&& other)
-    : executor_(other.get_executor()),
-      service_(&other.get_service()),
-      has_native_impl_(other.has_native_impl_)
+    : service_(&other.get_service()),
+      implementation_executor_(other.get_implementation_executor())
   {
     service_->move_construct(implementation_, other.implementation_);
   }
@@ -77,9 +101,9 @@ public:
   // Perform a converting move-construction of an I/O object.
   template <typename IoObjectService1, typename Executor1>
   io_object_impl(io_object_impl<IoObjectService1, Executor1>&& other)
-    : executor_(other.get_executor()),
-      service_(&asio::use_service<IoObjectService>(executor_.context())),
-      has_native_impl_(is_same<Executor1, io_context::executor_type>::value)
+    : service_(&asio::use_service<IoObjectService>(
+            other.get_implementation_executor().context())),
+      implementation_executor_(other.get_implementation_executor())
   {
     service_->converting_move_construct(implementation_,
         other.get_service(), other.get_implementation());
@@ -100,10 +124,10 @@ public:
     {
       service_->move_assign(implementation_,
           *other.service_, other.implementation_);
-      executor_.~executor_type();
-      new (&executor_) executor_type(std::move(other.executor_));
+      implementation_executor_.~implementation_executor_type();
+      new (&implementation_executor_) implementation_executor_type(
+          std::move(other.implementation_executor_));
       service_ = other.service_;
-      has_native_impl_ = other.has_native_impl_;
     }
     return *this;
   }
@@ -112,13 +136,14 @@ public:
   // Get the executor associated with the object.
   executor_type get_executor() ASIO_NOEXCEPT
   {
-    return executor_;
+    return implementation_executor_.inner_executor();
   }
 
   // Get the executor to be used when implementing asynchronous operations.
-  implementation_executor_type get_implementation_executor() ASIO_NOEXCEPT
+  const implementation_executor_type& get_implementation_executor()
+    ASIO_NOEXCEPT
   {
-    return io_object_executor<Executor>(executor_, has_native_impl_);
+    return implementation_executor_;
   }
 
   // Get the service associated with the I/O object.
@@ -150,17 +175,14 @@ private:
   io_object_impl(const io_object_impl&);
   io_object_impl& operator=(const io_object_impl&);
 
-  // The associated executor.
-  executor_type executor_;
-
   // The service associated with the I/O object.
   service_type* service_;
 
   // The underlying implementation of the I/O object.
   implementation_type implementation_;
 
-  // Whether the executor has a native I/O implementation.
-  bool has_native_impl_;
+  // The associated executor.
+  implementation_executor_type implementation_executor_;
 };
 
 } // namespace detail

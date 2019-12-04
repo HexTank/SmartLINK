@@ -71,6 +71,14 @@ public:
   /// The type of the executor associated with the object.
   typedef Executor executor_type;
 
+  /// Rebinds the resolver type to another executor.
+  template <typename Executor1>
+  struct rebind_executor
+  {
+    /// The resolver type when rebound to the specified executor.
+    typedef basic_resolver<InternetProtocol, Executor1> other;
+  };
+
   /// The protocol type.
   typedef InternetProtocol protocol_type;
 
@@ -318,7 +326,8 @@ public:
    *
    * @param resolve_flags A set of flags that determine how name resolution
    * should be performed. The default flags are suitable for communication with
-   * remote hosts.
+   * remote hosts. See the @ref resolver_base documentation for the set of
+   * available flags.
    *
    * @returns A range object representing the list of endpoint entries. A
    * successful call to this function is guaranteed to return a non-empty
@@ -367,7 +376,8 @@ public:
    *
    * @param resolve_flags A set of flags that determine how name resolution
    * should be performed. The default flags are suitable for communication with
-   * remote hosts.
+   * remote hosts. See the @ref resolver_base documentation for the set of
+   * available flags.
    *
    * @param ec Set to indicate what error occurred, if any.
    *
@@ -501,7 +511,8 @@ public:
    *
    * @param resolve_flags A set of flags that determine how name resolution
    * should be performed. The default flags are suitable for communication with
-   * remote hosts.
+   * remote hosts. See the @ref resolver_base documentation for the set of
+   * available flags.
    *
    * @returns A range object representing the list of endpoint entries. A
    * successful call to this function is guaranteed to return a non-empty
@@ -555,7 +566,8 @@ public:
    *
    * @param resolve_flags A set of flags that determine how name resolution
    * should be performed. The default flags are suitable for communication with
-   * remote hosts.
+   * remote hosts. See the @ref resolver_base documentation for the set of
+   * available flags.
    *
    * @param ec Set to indicate what error occurred, if any.
    *
@@ -608,15 +620,19 @@ public:
    * A successful resolve operation is guaranteed to pass a non-empty range to
    * the handler.
    */
-  template <typename ResolveHandler>
-  ASIO_INITFN_RESULT_TYPE(ResolveHandler,
+  template <
+      ASIO_COMPLETION_TOKEN_FOR(void (asio::error_code,
+        results_type)) ResolveHandler
+          ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+  ASIO_INITFN_AUTO_RESULT_TYPE(ResolveHandler,
       void (asio::error_code, results_type))
   async_resolve(const query& q,
-      ASIO_MOVE_ARG(ResolveHandler) handler)
+      ASIO_MOVE_ARG(ResolveHandler) handler
+        ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
   {
     return asio::async_initiate<ResolveHandler,
       void (asio::error_code, results_type)>(
-        initiate_async_resolve(), handler, this, q);
+        initiate_async_resolve(this), handler, q);
   }
 #endif // !defined(ASIO_NO_DEPRECATED)
 
@@ -662,12 +678,16 @@ public:
    * <tt>c:\\windows\\system32\\drivers\\etc\\services</tt>. Operating systems
    * may use additional locations when resolving service names.
    */
-  template <typename ResolveHandler>
-  ASIO_INITFN_RESULT_TYPE(ResolveHandler,
+  template <
+      ASIO_COMPLETION_TOKEN_FOR(void (asio::error_code,
+        results_type)) ResolveHandler
+          ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+  ASIO_INITFN_AUTO_RESULT_TYPE(ResolveHandler,
       void (asio::error_code, results_type))
   async_resolve(ASIO_STRING_VIEW_PARAM host,
       ASIO_STRING_VIEW_PARAM service,
-      ASIO_MOVE_ARG(ResolveHandler) handler)
+      ASIO_MOVE_ARG(ResolveHandler) handler
+        ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
   {
     return async_resolve(host, service, resolver_base::flags(),
         ASIO_MOVE_CAST(ResolveHandler)(handler));
@@ -691,7 +711,8 @@ public:
    *
    * @param resolve_flags A set of flags that determine how name resolution
    * should be performed. The default flags are suitable for communication with
-   * remote hosts.
+   * remote hosts. See the @ref resolver_base documentation for the set of
+   * available flags.
    *
    * @param handler The handler to be called when the resolve operation
    * completes. Copies will be made of the handler as required. The function
@@ -719,20 +740,24 @@ public:
    * <tt>c:\\windows\\system32\\drivers\\etc\\services</tt>. Operating systems
    * may use additional locations when resolving service names.
    */
-  template <typename ResolveHandler>
-  ASIO_INITFN_RESULT_TYPE(ResolveHandler,
+  template <
+      ASIO_COMPLETION_TOKEN_FOR(void (asio::error_code,
+        results_type)) ResolveHandler
+          ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+  ASIO_INITFN_AUTO_RESULT_TYPE(ResolveHandler,
       void (asio::error_code, results_type))
   async_resolve(ASIO_STRING_VIEW_PARAM host,
       ASIO_STRING_VIEW_PARAM service,
       resolver_base::flags resolve_flags,
-      ASIO_MOVE_ARG(ResolveHandler) handler)
+      ASIO_MOVE_ARG(ResolveHandler) handler
+        ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
   {
     basic_resolver_query<protocol_type> q(static_cast<std::string>(host),
         static_cast<std::string>(service), resolve_flags);
 
     return asio::async_initiate<ResolveHandler,
       void (asio::error_code, results_type)>(
-        initiate_async_resolve(), handler, this, q);
+        initiate_async_resolve(this), handler, q);
   }
 
   /// Asynchronously perform forward resolution of a query to a list of entries.
@@ -780,12 +805,16 @@ public:
    * <tt>c:\\windows\\system32\\drivers\\etc\\services</tt>. Operating systems
    * may use additional locations when resolving service names.
    */
-  template <typename ResolveHandler>
-  ASIO_INITFN_RESULT_TYPE(ResolveHandler,
+  template <
+      ASIO_COMPLETION_TOKEN_FOR(void (asio::error_code,
+        results_type)) ResolveHandler
+          ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+  ASIO_INITFN_AUTO_RESULT_TYPE(ResolveHandler,
       void (asio::error_code, results_type))
   async_resolve(const protocol_type& protocol,
       ASIO_STRING_VIEW_PARAM host, ASIO_STRING_VIEW_PARAM service,
-      ASIO_MOVE_ARG(ResolveHandler) handler)
+      ASIO_MOVE_ARG(ResolveHandler) handler
+        ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
   {
     return async_resolve(protocol, host, service, resolver_base::flags(),
         ASIO_MOVE_CAST(ResolveHandler)(handler));
@@ -812,7 +841,8 @@ public:
    *
    * @param resolve_flags A set of flags that determine how name resolution
    * should be performed. The default flags are suitable for communication with
-   * remote hosts.
+   * remote hosts. See the @ref resolver_base documentation for the set of
+   * available flags.
    *
    * @param handler The handler to be called when the resolve operation
    * completes. Copies will be made of the handler as required. The function
@@ -840,13 +870,17 @@ public:
    * <tt>c:\\windows\\system32\\drivers\\etc\\services</tt>. Operating systems
    * may use additional locations when resolving service names.
    */
-  template <typename ResolveHandler>
-  ASIO_INITFN_RESULT_TYPE(ResolveHandler,
+  template <
+      ASIO_COMPLETION_TOKEN_FOR(void (asio::error_code,
+        results_type)) ResolveHandler
+          ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+  ASIO_INITFN_AUTO_RESULT_TYPE(ResolveHandler,
       void (asio::error_code, results_type))
   async_resolve(const protocol_type& protocol,
       ASIO_STRING_VIEW_PARAM host, ASIO_STRING_VIEW_PARAM service,
       resolver_base::flags resolve_flags,
-      ASIO_MOVE_ARG(ResolveHandler) handler)
+      ASIO_MOVE_ARG(ResolveHandler) handler
+        ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
   {
     basic_resolver_query<protocol_type> q(
         protocol, static_cast<std::string>(host),
@@ -854,7 +888,7 @@ public:
 
     return asio::async_initiate<ResolveHandler,
       void (asio::error_code, results_type)>(
-        initiate_async_resolve(), handler, this, q);
+        initiate_async_resolve(this), handler, q);
   }
 
   /// Perform reverse resolution of an endpoint to a list of entries.
@@ -923,15 +957,19 @@ public:
    * A successful resolve operation is guaranteed to pass a non-empty range to
    * the handler.
    */
-  template <typename ResolveHandler>
-  ASIO_INITFN_RESULT_TYPE(ResolveHandler,
+  template <
+      ASIO_COMPLETION_TOKEN_FOR(void (asio::error_code,
+        results_type)) ResolveHandler
+          ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+  ASIO_INITFN_AUTO_RESULT_TYPE(ResolveHandler,
       void (asio::error_code, results_type))
   async_resolve(const endpoint_type& e,
-      ASIO_MOVE_ARG(ResolveHandler) handler)
+      ASIO_MOVE_ARG(ResolveHandler) handler
+        ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
   {
     return asio::async_initiate<ResolveHandler,
       void (asio::error_code, results_type)>(
-        initiate_async_resolve(), handler, this, e);
+        initiate_async_resolve(this), handler, e);
   }
 
 private:
@@ -939,11 +977,24 @@ private:
   basic_resolver(const basic_resolver&) ASIO_DELETED;
   basic_resolver& operator=(const basic_resolver&) ASIO_DELETED;
 
-  struct initiate_async_resolve
+  class initiate_async_resolve
   {
+  public:
+    typedef Executor executor_type;
+
+    explicit initiate_async_resolve(basic_resolver* self)
+      : self_(self)
+    {
+    }
+
+    executor_type get_executor() const ASIO_NOEXCEPT
+    {
+      return self_->get_executor();
+    }
+
     template <typename ResolveHandler, typename Query>
     void operator()(ASIO_MOVE_ARG(ResolveHandler) handler,
-        basic_resolver* self, const Query& q) const
+        const Query& q) const
     {
       // If you get an error on the following line it means that your handler
       // does not meet the documented type requirements for a ResolveHandler.
@@ -951,10 +1002,13 @@ private:
           ResolveHandler, handler, results_type) type_check;
 
       asio::detail::non_const_lvalue<ResolveHandler> handler2(handler);
-      self->impl_.get_service().async_resolve(
-          self->impl_.get_implementation(), q, handler2.value,
-          self->impl_.get_implementation_executor());
+      self_->impl_.get_service().async_resolve(
+          self_->impl_.get_implementation(), q, handler2.value,
+          self_->impl_.get_implementation_executor());
     }
+
+  private:
+    basic_resolver* self_;
   };
 
 # if defined(ASIO_WINDOWS_RUNTIME)

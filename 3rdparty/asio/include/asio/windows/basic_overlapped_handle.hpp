@@ -57,6 +57,14 @@ public:
   /// The type of the executor associated with the object.
   typedef Executor executor_type;
 
+  /// Rebinds the handle type to another executor.
+  template <typename Executor1>
+  struct rebind_executor
+  {
+    /// The handle type when rebound to the specified executor.
+    typedef basic_overlapped_handle<Executor1> other;
+  };
+
   /// The native representation of a handle.
 #if defined(GENERATING_DOCUMENTATION)
   typedef implementation_defined native_handle_type;
@@ -92,7 +100,8 @@ public:
   template <typename ExecutionContext>
   explicit basic_overlapped_handle(ExecutionContext& context,
       typename enable_if<
-        is_convertible<ExecutionContext&, execution_context&>::value
+        is_convertible<ExecutionContext&, execution_context&>::value,
+        basic_overlapped_handle
       >::type* = 0)
     : impl_(context)
   {

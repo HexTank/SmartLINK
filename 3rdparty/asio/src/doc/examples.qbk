@@ -454,6 +454,9 @@ Examples showing how to implement composed asynchronous operations as reusable l
 * [@../src/examples/cpp11/operations/composed_3.cpp]
 * [@../src/examples/cpp11/operations/composed_4.cpp]
 * [@../src/examples/cpp11/operations/composed_5.cpp]
+* [@../src/examples/cpp11/operations/composed_6.cpp]
+* [@../src/examples/cpp11/operations/composed_7.cpp]
+* [@../src/examples/cpp11/operations/composed_8.cpp]
 
 
 [heading SOCKS 4]
@@ -511,6 +514,26 @@ Examples showing how to use UNIX domain (local) sockets.
 * [@../src/examples/cpp11/local/iostream_client.cpp] ([@examples/diffs/local/iostream_client.cpp.html diff to C++03])
 * [@../src/examples/cpp11/local/stream_server.cpp] ([@examples/diffs/local/stream_server.cpp.html diff to C++03])
 * [@../src/examples/cpp11/local/stream_client.cpp] ([@examples/diffs/local/stream_client.cpp.html diff to C++03])
+
+
+[endsect]
+
+
+[section:cpp14_examples C++14 Examples]
+
+
+[heading Operations]
+
+Examples showing how to implement composed asynchronous operations as reusable library functions.
+
+* [@../src/examples/cpp14/operations/composed_1.cpp]
+* [@../src/examples/cpp14/operations/composed_2.cpp]
+* [@../src/examples/cpp14/operations/composed_3.cpp]
+* [@../src/examples/cpp14/operations/composed_4.cpp]
+* [@../src/examples/cpp14/operations/composed_5.cpp]
+* [@../src/examples/cpp14/operations/composed_6.cpp]
+* [@../src/examples/cpp14/operations/composed_7.cpp]
+* [@../src/examples/cpp14/operations/composed_8.cpp]
 
 
 [endsect]

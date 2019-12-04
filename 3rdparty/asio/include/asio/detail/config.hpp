@@ -11,6 +11,20 @@
 #ifndef ASIO_DETAIL_CONFIG_HPP
 #define ASIO_DETAIL_CONFIG_HPP
 
+// boostify: non-boost code starts here
+#if !defined(ASIO_STANDALONE)
+# if !defined(ASIO_ENABLE_BOOST)
+#  if (__cplusplus >= 201103)
+#   define ASIO_STANDALONE 1
+#  elif defined(_MSC_VER) && defined(_MSVC_LANG)
+#   if (_MSC_VER >= 1900) && (_MSVC_LANG >= 201103)
+#    define ASIO_STANDALONE 1
+#   endif // (_MSC_VER >= 1900) && (_MSVC_LANG >= 201103)
+#  endif // defined(_MSC_VER) && defined(_MSVC_LANG)
+# endif // !defined(ASIO_ENABLE_BOOST)
+#endif // !defined(ASIO_STANDALONE)
+
+// boostify: non-boost code ends here
 #if defined(ASIO_STANDALONE)
 # define ASIO_DISABLE_BOOST_ARRAY 1
 # define ASIO_DISABLE_BOOST_ASSERT 1
@@ -284,9 +298,9 @@
 #   endif // ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 6)) || (__GNUC__ > 4)
 #  endif // defined(__GNUC__)
 #  if defined(ASIO_MSVC)
-#   if (_MSC_VER >= 1700)
+#   if (_MSC_VER >= 1800)
 #    define ASIO_HAS_DECLTYPE 1
-#   endif // (_MSC_VER >= 1700)
+#   endif // (_MSC_VER >= 1800)
 #  endif // defined(ASIO_MSVC)
 # endif // !defined(ASIO_DISABLE_DECLTYPE)
 #endif // !defined(ASIO_HAS_DECLTYPE)
@@ -313,6 +327,38 @@
 #  endif // defined(ASIO_MSVC)
 # endif // !defined(ASIO_DISABLE_ALIAS_TEMPLATES)
 #endif // !defined(ASIO_HAS_ALIAS_TEMPLATES)
+
+// Support return type deduction on compilers known to allow it.
+#if !defined(ASIO_HAS_RETURN_TYPE_DEDUCTION)
+# if !defined(ASIO_DISABLE_RETURN_TYPE_DEDUCTION)
+#  if defined(__clang__)
+#   if __has_feature(__cxx_return_type_deduction__)
+#    define ASIO_HAS_RETURN_TYPE_DEDUCTION 1
+#   endif // __has_feature(__cxx_alias_templates__)
+#  elif (__cplusplus >= 201402)
+#   define ASIO_HAS_RETURN_TYPE_DEDUCTION 1
+#  endif // (__cplusplus >= 201402)
+# endif // !defined(ASIO_DISABLE_RETURN_TYPE_DEDUCTION)
+#endif // !defined(ASIO_HAS_RETURN_TYPE_DEDUCTION)
+
+// Support default function template arguments on compilers known to allow it.
+#if !defined(ASIO_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS)
+# if !defined(ASIO_DISABLE_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS)
+#  if (__cplusplus >= 201103)
+#   define ASIO_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS 1
+#  endif // (__cplusplus >= 201103)
+# endif // !defined(ASIO_DISABLE_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS)
+#endif // !defined(ASIO_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS)
+
+// Support concepts on compilers known to allow them.
+#if !defined(ASIO_HAS_CONCEPTS)
+# if !defined(ASIO_DISABLE_CONCEPTS)
+#  if __cpp_concepts
+#   define ASIO_HAS_CONCEPTS 1
+#   define ASIO_CONCEPT concept bool
+#  endif // __cpp_concepts
+# endif // !defined(ASIO_DISABLE_CONCEPTS)
+#endif // !defined(ASIO_HAS_CONCEPTS)
 
 // Standard library support for system errors.
 #if !defined(ASIO_HAS_STD_SYSTEM_ERROR)
@@ -343,7 +389,7 @@
 
 // Compliant C++11 compilers put noexcept specifiers on error_category members.
 #if !defined(ASIO_ERROR_CATEGORY_NOEXCEPT)
-# if (BOOST_VERSION >= 105300)
+# if defined(ASIO_HAS_BOOST_CONFIG) && (BOOST_VERSION >= 105300)
 #  define ASIO_ERROR_CATEGORY_NOEXCEPT BOOST_NOEXCEPT
 # elif defined(__clang__)
 #  if __has_feature(__cxx_noexcept__)
@@ -452,7 +498,13 @@
 #    if __has_include(<atomic>)
 #     define ASIO_HAS_STD_ATOMIC 1
 #    endif // __has_include(<atomic>)
-#   endif // (__cplusplus >= 201103)
+#   elif defined(__apple_build_version__) && defined(_LIBCPP_VERSION)
+#    if (__clang_major__ >= 10)
+#     if __has_include(<atomic>)
+#      define ASIO_HAS_STD_ATOMIC 1
+#     endif // __has_include(<atomic>)
+#    endif // (__clang_major__ >= 10)
+#   endif /// defined(__apple_build_version__) && defined(_LIBCPP_VERSION)
 #  endif // defined(__clang__)
 #  if defined(__GNUC__)
 #   if ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 7)) || (__GNUC__ > 4)
@@ -504,9 +556,9 @@
 // Boost support for chrono.
 #if !defined(ASIO_HAS_BOOST_CHRONO)
 # if !defined(ASIO_DISABLE_BOOST_CHRONO)
-#  if (BOOST_VERSION >= 104700)
+#  if defined(ASIO_HAS_BOOST_CONFIG) && (BOOST_VERSION >= 104700)
 #   define ASIO_HAS_BOOST_CHRONO 1
-#  endif // (BOOST_VERSION >= 104700)
+#  endif // defined(ASIO_HAS_BOOST_CONFIG) && (BOOST_VERSION >= 104700)
 # endif // !defined(ASIO_DISABLE_BOOST_CHRONO)
 #endif // !defined(ASIO_HAS_BOOST_CHRONO)
 
@@ -928,15 +980,15 @@
 #  if defined(_MSC_VER) || defined(__BORLANDC__)
 #   pragma message( \
   "Please define _WIN32_WINNT or _WIN32_WINDOWS appropriately. For example:\n"\
-  "- add -D_WIN32_WINNT=0x0501 to the compiler command line; or\n"\
-  "- add _WIN32_WINNT=0x0501 to your project's Preprocessor Definitions.\n"\
-  "Assuming _WIN32_WINNT=0x0501 (i.e. Windows XP target).")
+  "- add -D_WIN32_WINNT=0x0601 to the compiler command line; or\n"\
+  "- add _WIN32_WINNT=0x0601 to your project's Preprocessor Definitions.\n"\
+  "Assuming _WIN32_WINNT=0x0601 (i.e. Windows 7 target).")
 #  else // defined(_MSC_VER) || defined(__BORLANDC__)
 #   warning Please define _WIN32_WINNT or _WIN32_WINDOWS appropriately.
-#   warning For example, add -D_WIN32_WINNT=0x0501 to the compiler command line.
-#   warning Assuming _WIN32_WINNT=0x0501 (i.e. Windows XP target).
+#   warning For example, add -D_WIN32_WINNT=0x0601 to the compiler command line.
+#   warning Assuming _WIN32_WINNT=0x0601 (i.e. Windows 7 target).
 #  endif // defined(_MSC_VER) || defined(__BORLANDC__)
-#  define _WIN32_WINNT 0x0501
+#  define _WIN32_WINNT 0x0601
 # endif // !defined(_WIN32_WINNT) && !defined(_WIN32_WINDOWS)
 # if defined(_MSC_VER)
 #  if defined(_WIN32) && !defined(WIN32)
@@ -1007,7 +1059,8 @@
    || defined(__FreeBSD__) \
    || defined(__NetBSD__) \
    || defined(__OpenBSD__) \
-   || defined(__linux__)
+   || defined(__linux__) \
+   || defined(__HAIKU__)
 #   define ASIO_HAS_UNISTD_H 1
 #  endif
 # endif // !defined(ASIO_HAS_BOOST_CONFIG)
@@ -1227,6 +1280,8 @@
 #   define ASIO_HAS_THREADS 1
 #  elif defined(__APPLE__)
 #   define ASIO_HAS_THREADS 1
+#  elif defined(__HAIKU__)
+#   define ASIO_HAS_THREADS 1
 #  elif defined(_POSIX_THREADS) && (_POSIX_THREADS + 0 >= 0)
 #   define ASIO_HAS_THREADS 1
 #  elif defined(_PTHREADS)
@@ -1241,6 +1296,8 @@
 #  if defined(ASIO_HAS_BOOST_CONFIG) && defined(BOOST_HAS_PTHREADS)
 #   define ASIO_HAS_PTHREADS 1
 #  elif defined(_POSIX_THREADS) && (_POSIX_THREADS + 0 >= 0)
+#   define ASIO_HAS_PTHREADS 1
+#  elif defined(__HAIKU__)
 #   define ASIO_HAS_PTHREADS 1
 #  endif // defined(ASIO_HAS_BOOST_CONFIG) && defined(BOOST_HAS_PTHREADS)
 # endif // defined(ASIO_HAS_THREADS)
@@ -1422,11 +1479,11 @@
 #  endif // defined(ASIO_MSVC)
 # endif // !defined(ASIO_DISABLE_CO_AWAIT)
 # if defined(__clang__)
-#  if (__cpp_coroutines >= 201703)
+#  if (__cplusplus >= 201703) && (__cpp_coroutines >= 201703)
 #   if __has_include(<experimental/coroutine>)
 #    define ASIO_HAS_CO_AWAIT 1
 #   endif // __has_include(<experimental/coroutine>)
-#  endif // (__cpp_coroutines >= 201703)
+#  endif // (__cplusplus >= 201703) && (__cpp_coroutines >= 201703)
 # endif // defined(__clang__)
 #endif // !defined(ASIO_HAS_CO_AWAIT)
 

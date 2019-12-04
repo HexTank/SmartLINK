@@ -53,6 +53,8 @@
 [include requirements/ConnectHandler.qbk]
 [include requirements/ConstBufferSequence.qbk]
 [include requirements/DynamicBuffer.qbk]
+[include requirements/DynamicBuffer_v1.qbk]
+[include requirements/DynamicBuffer_v2.qbk]
 [include requirements/Endpoint.qbk]
 [include requirements/EndpointSequence.qbk]
 [include requirements/ExecutionContext.qbk]
@@ -770,9 +772,6 @@
   <xsl:choose>
     <xsl:when test="contains($file, 'include/asio/ssl')">
       <xsl:text>[^asio/ssl.hpp]</xsl:text>
-    </xsl:when>
-    <xsl:when test="contains($file, 'include/asio/experimental')">
-      <xsl:text>[^asio/experimental.hpp]</xsl:text>
     </xsl:when>
     <xsl:when test="contains($file, 'include/asio/spawn')">
       <xsl:text>None</xsl:text>
@@ -1504,6 +1503,9 @@
         <xsl:when test="declname = 'CompletionToken'">
           <xsl:value-of select="declname"/>
         </xsl:when>
+        <xsl:when test="declname = 'ConstBuffer'">
+          <xsl:value-of select="declname"/>
+        </xsl:when>
         <xsl:when test="declname = 'Context_Service'">
           <xsl:value-of select="declname"/>
         </xsl:when>
@@ -1528,6 +1530,9 @@
         <xsl:when test="declname = 'Executor'">
           <xsl:value-of select="concat('``[link asio.reference.Executor1 ', declname, ']``')"/>
         </xsl:when>
+        <xsl:when test="declname = 'Executor2'">
+          <xsl:value-of select="concat('``[link asio.reference.Executor1 ', declname, ']``')"/>
+        </xsl:when>
         <xsl:when test="declname = 'F'">
           <xsl:value-of select="declname"/>
         </xsl:when>
@@ -1537,10 +1542,22 @@
         <xsl:when test="declname = 'IoObjectService1'">
           <xsl:value-of select="concat('``[link asio.reference.IoObjectService ', declname, ']``')"/>
         </xsl:when>
+        <xsl:when test="declname = 'Implementation'">
+          <xsl:value-of select="declname"/>
+        </xsl:when>
+        <xsl:when test="declname = 'Initiation'">
+          <xsl:value-of select="declname"/>
+        </xsl:when>
+        <xsl:when test="declname = 'IoObjectsOrExecutors'">
+          <xsl:value-of select="declname"/>
+        </xsl:when>
         <xsl:when test="declname = 'Iterator'">
           <xsl:value-of select="declname"/>
         </xsl:when>
         <xsl:when test="declname = 'MatchCondition'">
+          <xsl:value-of select="declname"/>
+        </xsl:when>
+        <xsl:when test="declname = 'MutableBuffer'">
           <xsl:value-of select="declname"/>
         </xsl:when>
         <xsl:when test="declname = 'N'">
@@ -1569,6 +1586,9 @@
         </xsl:when>
         <xsl:when test="declname = 'Protocol1'">
           <xsl:value-of select="concat('``[link asio.reference.Protocol ', declname, ']``')"/>
+        </xsl:when>
+        <xsl:when test="declname = 'RawCompletionToken'">
+          <xsl:value-of select="declname"/>
         </xsl:when>
         <xsl:when test="declname = 'RawSocketService1'">
           <xsl:value-of select="concat('``[link asio.reference.RawSocketService ', declname, ']``')"/>

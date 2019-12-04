@@ -27,6 +27,8 @@
 
 #include "asio/detail/push_options.hpp"
 
+#if !defined(GENERATING_DOCUMENTATION)
+
 namespace asio {
 
 template <typename Service>
@@ -47,6 +49,8 @@ inline detail::io_context_impl& use_service<detail::io_context_impl>(
 }
 
 } // namespace asio
+
+#endif // !defined(GENERATING_DOCUMENTATION)
 
 #include "asio/detail/pop_options.hpp"
 
@@ -156,7 +160,7 @@ struct io_context::initiate_dispatch
       p.p = new (p.v) op(handler2.value);
 
       ASIO_HANDLER_CREATION((*self, *p.p,
-            "io_context", this, 0, "dispatch"));
+            "io_context", self, 0, "dispatch"));
 
       self->impl_.do_dispatch(p.p);
       p.v = p.p = 0;
@@ -165,7 +169,7 @@ struct io_context::initiate_dispatch
 };
 
 template <typename LegacyCompletionHandler>
-ASIO_INITFN_RESULT_TYPE(LegacyCompletionHandler, void ())
+ASIO_INITFN_AUTO_RESULT_TYPE(LegacyCompletionHandler, void ())
 io_context::dispatch(ASIO_MOVE_ARG(LegacyCompletionHandler) handler)
 {
   return async_initiate<LegacyCompletionHandler, void ()>(
@@ -196,7 +200,7 @@ struct io_context::initiate_post
     p.p = new (p.v) op(handler2.value);
 
     ASIO_HANDLER_CREATION((*self, *p.p,
-          "io_context", this, 0, "post"));
+          "io_context", self, 0, "post"));
 
     self->impl_.post_immediate_completion(p.p, is_continuation);
     p.v = p.p = 0;
@@ -204,7 +208,7 @@ struct io_context::initiate_post
 };
 
 template <typename LegacyCompletionHandler>
-ASIO_INITFN_RESULT_TYPE(LegacyCompletionHandler, void ())
+ASIO_INITFN_AUTO_RESULT_TYPE(LegacyCompletionHandler, void ())
 io_context::post(ASIO_MOVE_ARG(LegacyCompletionHandler) handler)
 {
   return async_initiate<LegacyCompletionHandler, void ()>(

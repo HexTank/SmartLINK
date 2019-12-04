@@ -60,7 +60,7 @@ public:
 #endif
 
   /// Default constructor.
-  basic_endpoint()
+  basic_endpoint() ASIO_NOEXCEPT
   {
   }
 
@@ -75,6 +75,14 @@ public:
     : impl_(path_name)
   {
   }
+
+  #if defined(ASIO_HAS_STRING_VIEW)
+  /// Construct an endpoint using the specified path name.
+  basic_endpoint(string_view path_name)
+    : impl_(path_name)
+  {
+  }
+  #endif // defined(ASIO_HAS_STRING_VIEW)
 
   /// Copy constructor.
   basic_endpoint(const basic_endpoint& other)

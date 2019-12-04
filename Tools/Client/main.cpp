@@ -17,9 +17,11 @@
 #include <thread>
 #include <deque>
 #include <string>
+#include <mutex>
+#include <condition_variable>
 #include "asio.hpp"
-
 using namespace std;
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -93,9 +95,10 @@ class smartlink_serial
 {
 public:
     smartlink_serial(shared_ptr<asio::io_service> io_service, const string& device)
-        : active_(true),
-        io_service(io_service),
-        serialPort(*io_service, device)
+        : active_(true)
+        , transferring_(false)
+        , io_service(io_service)
+        , serialPort(*io_service, device)
     {
         if (!serialPort.is_open())
         {
@@ -110,12 +113,23 @@ public:
         read_start();
     }
 
-    void write(shared_ptr<vector<uint8_t>> data)
+    template <typename DATA>
+    void write(DATA data)
     {
+        auto start = chrono::steady_clock::now();
+        std::cerr << "Started writing\n";
+        unique_lock<mutex> m(transfer_mutex);
+        transferring_ = true;
+
         io_service->post([this, data]()
         {
             do_write(data);
         });
+
+        transfer_waiting.wait(m, [&] { return !transferring_; });
+        auto end = chrono::steady_clock::now();
+        auto diff = end - start;
+        std::cerr << "Finished writing : " << chrono::duration <double, milli>(diff).count() << " ms" << endl;
     }
 
     void close()
@@ -128,10 +142,6 @@ public:
 
     void wait()
     {
-        io_service->post([this]()
-        {
-            std::cout << "Done!" << std::endl;
-        });
     }
 
     bool active()
@@ -145,7 +155,7 @@ private:
 
     void read_start(void)
     {
-        serialPort.async_read_some(asio::buffer(read_msg_, max_read_length), [=](const asio::error_code& error, size_t bytes_transferred)
+        serialPort.async_read_some(asio::buffer(read_msg_, max_read_length), [&](const asio::error_code& error, size_t bytes_transferred)
         {
             cout << "Read : " << bytes_transferred << "bytes" << endl;
             if (!error)
@@ -158,6 +168,10 @@ private:
                 if (write_msgs_.empty())
                 {
                     std::cout << "All done!" << std::endl;
+                    unique_lock<mutex> m(transfer_mutex, std::try_to_lock);
+                    transferring_ = false;
+                    m.unlock();
+                    transfer_waiting.notify_one();
                 }
                 read_start();
             }
@@ -166,18 +180,34 @@ private:
         });
     }
 
+    void do_write(vector<shared_ptr<vector<uint8_t>>> data)
+    {
+        const bool write_in_progress = !write_msgs_.empty();
+        for (auto &d : data)
+        {
+            write_msgs_.push_back(d);
+        }
+        if (!write_in_progress)
+        {
+            write_start();
+        }
+    }
+
     void do_write(shared_ptr<vector<uint8_t>> data)
     {
-        bool write_in_progress = !write_msgs_.empty();
+        const bool write_in_progress = !write_msgs_.empty();
         write_msgs_.push_back(data);
         if (!write_in_progress)
+        {
             write_start();
+        }
     }
+
 
     void write_start(void)
     {
         cout << "Write : " << write_msgs_.front().get()->size() << "bytes" << endl;
-        asio::async_write(serialPort, asio::buffer(write_msgs_.front().get()->data(), write_msgs_.front().get()->size()), [=](const asio::error_code& error, size_t bytes_transferred)
+        asio::async_write(serialPort, asio::buffer(write_msgs_.front().get()->data(), write_msgs_.front().get()->size()), [&](const asio::error_code& error, size_t bytes_transferred)
         {
             cout << "Wrote : " << bytes_transferred << "bytes" << endl;
             if (!error)
@@ -206,7 +236,11 @@ private:
     }
 
 private:
-    bool active_;
+    atomic<bool> active_;
+    atomic<bool> transferring_;
+    mutex transfer_mutex;
+    condition_variable transfer_waiting;
+
     shared_ptr<asio::io_service> io_service;
     asio::serial_port serialPort;
     uint8_t read_msg_[max_read_length];
@@ -233,9 +267,9 @@ shared_ptr<vector<uint8_t>> make_payload(uint8_t code, uint16_t location, uint16
     payload->push_back(crc7(payload->data(), payload->size()));
     payload->push_back(0xfe);
     payload->push_back(code);
-    payload->push_back(location);
+    payload->push_back(location & 0xff);
     payload->push_back(location >> 8);
-    payload->push_back(length);
+    payload->push_back(length & 0xff);
     payload->push_back(length >> 8);
     return payload;
 }
@@ -243,7 +277,7 @@ shared_ptr<vector<uint8_t>> make_payload(uint8_t code, uint16_t location, uint16
 
 shared_ptr<vector<uint8_t>> send_string(string string_to_load, int spectrumAddress)
 {
-    shared_ptr<vector<uint8_t>> payload = make_payload(0xaa, spectrumAddress, string_to_load.size() + 1);
+    shared_ptr<vector<uint8_t>> payload = make_payload(0xaa, spectrumAddress, static_cast<uint16_t>(string_to_load.size() + 1));
     payload->insert(std::end(*payload), std::begin(string_to_load), std::end(string_to_load));
     payload->push_back(0);
     return payload;
@@ -263,7 +297,7 @@ vector<shared_ptr<vector<uint8_t>>> send_file(string file_to_load, int spectrumA
     shared_ptr<vector<uint8_t>> payload;
 
     const int blocksize = 9000;
-    const int transferAmount = fileData.size();
+    const int transferAmount = static_cast<int>(fileData.size());
     for (int block = 0; block < transferAmount / blocksize; ++block)
     {
         payload = make_payload(0xaa, spectrumAddress, blocksize);
@@ -332,7 +366,7 @@ shared_ptr<vector<uint8_t>> make_smartlink_action(uint16_t code)
 {
     shared_ptr<vector<uint8_t>> payload(new vector<uint8_t>);
     payload->push_back('S' + 'L');
-    payload->push_back(code);
+    payload->push_back(code & 0xff);
     payload->push_back((code >> 8) | 0x80);
     payload->push_back(crc7(payload->data(), payload->size()));
     return payload;
@@ -376,11 +410,7 @@ int main(int argc, const char * argv[])
                 string snap_to_load;
                 cin >> snap_to_load;
                 vector<shared_ptr<vector<uint8_t>>> payloads = send_snapshot(snap_to_load);
-                for (auto payload : payloads)
-                {
-                    c.write(payload);
-                }
-                c.wait();
+                c.write(payloads);
             }
             if (s == "reset")
             {
@@ -392,10 +422,7 @@ int main(int argc, const char * argv[])
                 int address;
                 cin >> file_to_load >> address;
                 vector<shared_ptr<vector<uint8_t>>> payloads = send_file(file_to_load, address);
-                for (auto payload : payloads)
-                {
-                    c.write(payload);
-                }
+                c.write(payloads);
             }
             if (s == "string")
             {

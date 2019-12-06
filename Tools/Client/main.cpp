@@ -22,7 +22,6 @@
 #include "asio.hpp"
 using namespace std;
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //
@@ -79,6 +78,100 @@ uint8_t crc7(const uint8_t *packet, size_t packet_len)
     }
     return ((crc << 1) | 1);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//
+//
+//
+//
+//
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef _MSC_VER
+    #pragma pack(push)
+    #pragma pack(1)
+#endif
+struct SNA_Regs
+{
+    uint8_t i;
+    uint16_t _hl;
+    uint16_t _de;
+    uint16_t _bc;
+    uint16_t _af;
+    uint16_t hl;
+    uint16_t de;
+    uint16_t bc;
+    uint16_t iy;
+    uint16_t ix;
+    uint8_t iff2 : 1;
+    uint8_t ei : 1;
+    uint8_t r;
+    uint16_t af;
+    uint16_t sp;
+    uint8_t im;
+    uint8_t border;
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
+
+
+struct Z80_Shared_Regs
+{
+    uint8_t a;
+    uint8_t f;
+    uint16_t bc;
+    uint16_t hl;
+    uint16_t pc;    // 0 if v2 or v3
+    uint16_t sp;
+    uint8_t i;
+    uint8_t r;
+    uint8_t r_bit7 : 1;
+    uint8_t border : 3;
+    uint8_t samrom : 1;
+    uint8_t compressed : 1;
+    uint16_t de;
+    uint16_t _bc;
+    uint16_t _de;
+    uint16_t _hl;
+    uint8_t _a;
+    uint8_t _f;
+    uint16_t iy;
+    uint16_t ix;
+    uint8_t ei;
+    uint8_t iff2;
+    uint8_t im : 3;
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
+
+struct Z80_V1_Regs : Z80_Shared_Regs
+{
+    uint8_t data[1];
+}
+#ifdef __GNUC__
+__attribute((packed))
+#endif
+;
+
+struct SmartLINK_Regs : SNA_Regs
+{
+    uint16_t pc;
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
+
+#ifdef _MSC_VER
+    #pragma pack(pop)
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -326,7 +419,6 @@ vector<shared_ptr<vector<uint8_t>>> send_snapshot(string snapshot_to_load)
     snapshotFile.seekg(0, ios::beg);
     snapshotFile.read(snapshotData.data(), snapshotData.size());
 
-
     int snapshotIndex = 0;
     int spectrumAddress = 0x4000;
     shared_ptr<vector<uint8_t>> payload;
@@ -360,6 +452,104 @@ vector<shared_ptr<vector<uint8_t>>> send_snapshot(string snapshot_to_load)
     {
         payload = make_payload(0xaa, spectrumAddress, transferAmount%blocksize);
         payload->insert(std::end(*payload), std::begin(snapshotData) + snapshotIndex, std::begin(snapshotData) + snapshotIndex + (transferAmount%blocksize));
+        payloads.push_back(payload);
+    }
+
+    // start game payload
+    payload = make_payload(0x80, 0, 0);
+    payloads.push_back(payload);
+
+    return payloads;
+}
+
+vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
+{
+    vector<shared_ptr<vector<uint8_t>>> payloads;
+
+    ifstream snapshotFile(snapshot_to_load, ios::binary | ios::ate);
+    vector<char> snapshotData(snapshotFile.tellg());
+    snapshotFile.seekg(0, ios::beg);
+    snapshotFile.read(snapshotData.data(), snapshotData.size());
+
+    int snapshotIndex = 0;
+    int spectrumAddress = 0x4000;
+    shared_ptr<vector<uint8_t>> payload;
+
+
+    Z80_Shared_Regs *inRegs = reinterpret_cast<Z80_Shared_Regs *>(snapshotData.data());
+    SmartLINK_Regs outRegs;
+    outRegs.i = inRegs->i;
+    outRegs._hl = inRegs->_hl;
+    outRegs._de = inRegs->_de;
+    outRegs._bc = inRegs->_bc;
+    outRegs._af = (inRegs->_f << 8) | inRegs->_a;
+    outRegs.hl = inRegs->hl;
+    outRegs.de = inRegs->de;
+    outRegs.bc = inRegs->bc;
+    outRegs.iy = inRegs->iy;
+    outRegs.ix = inRegs->ix;
+    outRegs.ei = inRegs->ei;
+    outRegs.r = inRegs->r;
+    outRegs.af = (inRegs->f << 8) | inRegs->a;
+    outRegs.sp = inRegs->sp;
+    outRegs.im = inRegs->im;
+    outRegs.pc = inRegs->pc;
+    outRegs.border = inRegs->border;
+
+    // register details payload
+    auto const ptr = reinterpret_cast<uint8_t*>(&outRegs);
+    std::vector<uint8_t> regsAsBuffer(ptr, ptr + sizeof(outRegs));
+    payload = make_payload(0xa0, 0, 29);
+    payload->insert(std::end(*payload), regsAsBuffer.begin(), regsAsBuffer.end());
+    payloads.push_back(payload);
+    snapshotIndex += sizeof(Z80_Shared_Regs);
+
+    // For now, we just deal with v0 z80s, so we decompress the z80 data in to a 48k buffer.
+    std::vector<uint8_t> decompressedData(48 * 1024);
+    if (inRegs->compressed)
+    {
+        auto inData = snapshotData.begin() + snapshotIndex;
+        auto outData = decompressedData.begin();
+        while (inData != snapshotData.end() && outData != decompressedData.end())
+        {
+            uint8_t val = *inData++;
+            if (val == 0xed && inData != snapshotData.end() && *inData == static_cast<char>(0xed))
+            {
+                ++inData++;
+                uint8_t cnt = *inData++;
+                val = *inData++;
+                while (cnt-- > 0 && outData != decompressedData.end())
+                {
+                    *outData++ = val;
+                }
+            }
+            else
+            {
+                *outData++ = val;
+            }
+        }
+    }
+    else
+    {
+    }
+
+
+    // game data payloads
+    snapshotIndex = 0;
+    const int blocksize = 9000;
+    const int transferAmount = 48 * 1024;
+    for (int block = 0; block < transferAmount / blocksize; ++block)
+    {
+        payload = make_payload(0xaa, spectrumAddress, blocksize);
+        payload->insert(std::end(*payload), std::begin(decompressedData) + snapshotIndex, std::begin(decompressedData) + snapshotIndex + blocksize);
+        payloads.push_back(payload);
+        snapshotIndex += blocksize;
+        spectrumAddress += blocksize;
+    }
+    if (transferAmount%blocksize)
+    {
+        payload = make_payload(0xaa, spectrumAddress, transferAmount%blocksize);
+        payload->insert(std::end(*payload), std::begin(decompressedData) + snapshotIndex, std::begin(decompressedData) + snapshotIndex + (transferAmount%blocksize));
         payloads.push_back(payload);
     }
 
@@ -418,6 +608,13 @@ int main(int argc, const char * argv[])
                 string snap_to_load;
                 cin >> snap_to_load;
                 vector<shared_ptr<vector<uint8_t>>> payloads = send_snapshot(snap_to_load);
+                c.write(payloads);
+            }
+            if (s == "z80")
+            {
+                string snap_to_load;
+                cin >> snap_to_load;
+                vector<shared_ptr<vector<uint8_t>>> payloads = send_z80(snap_to_load);
                 c.write(payloads);
             }
             if (s == "reset")

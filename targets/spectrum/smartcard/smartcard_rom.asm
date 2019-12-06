@@ -71,6 +71,9 @@ restart_snapshot:
                 in      a,(c)
                 and     $70
                 ld      (rst_end),a
+                ; setup the jmp PC in video memory
+                ld      bc, (sna_header+27)
+                ld      ((rst_pc_val - rst_begin) + screen_mem), bc
         endif
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
         halt                        ; (to absorb any pending IRQ)
@@ -377,7 +380,7 @@ show_logo:
 ;
 ;---------------------------------------------------------------------------------------------
 init_scroll:
-        ld      hl,message-1        ; set to refresh char on first call
+        ld      hl,scroll_message-1 ; set to refresh char on first call
         ld      (scroll_pos),hl
         ld      hl,pix_count        ; variable to check if new character needed
         ld      (hl),1
@@ -399,7 +402,7 @@ new_char:
         jr      nz,get_glyph
 	
 loop_msg:
-        ld      hl,message          ; loop if necessary
+        ld      hl,scroll_message   ; loop if necessary
         ld      (scroll_pos),hl
 	
 get_glyph:
@@ -449,7 +452,7 @@ zx7_decode:
 ;---------------------------------------------------------------------------------------------
 ; ROM data
 ;---------------------------------------------------------------------------------------------
-message:        db      "SmartLINK Loader V0.3....   ",0
+scroll_message: db      "SmartLINK Loader V0.4....   ",0
 font:           incbin  "aquaplane.fnt"
 slink_image:    incbin  "smartlink.scr.zx7"
 
@@ -463,7 +466,8 @@ rst_bc_val:     db      $00, $00    ;         ,xxxx
                 db      $3e         ; ld    a,
 rst_a_val:      db      $00         ;         xx
 rst_ei_val:     db      $fb         ; ei
-                db      $ed, $45    ; retn
+                db      $c3         ; jp
+rst_pc_val:     db      $00, $00    ;         ,xxxx
 rst_end:
 
 ; --------------------------------------------------------------------------------------------

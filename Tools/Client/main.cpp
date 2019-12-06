@@ -331,9 +331,17 @@ vector<shared_ptr<vector<uint8_t>>> send_snapshot(string snapshot_to_load)
     int spectrumAddress = 0x4000;
     shared_ptr<vector<uint8_t>> payload;
 
+    // Get the value at (SP) and decrement SP twice, this is so we can send SP as register data to the spectrum and have a uniform executor.
+    // .SNA files store the PC at the current SP.
+    uint16_t *pStackPointer =  reinterpret_cast<uint16_t*>(snapshotData.data() + 17);
+    uint16_t programCounter = *reinterpret_cast<uint16_t*>(snapshotData.data() + 27 + *pStackPointer);
+    pStackPointer -= 2;
+
     // register details payload
-    payload = make_payload(0xa0, 0, 27);
+    payload = make_payload(0xa0, 0, 29);
     payload->insert(std::end(*payload), std::begin(snapshotData) + snapshotIndex, std::begin(snapshotData) + snapshotIndex + 27);
+    payload->emplace_back(programCounter & 0xff);
+    payload->emplace_back(programCounter >> 8);
     payloads.push_back(payload);
     snapshotIndex += 27;
 

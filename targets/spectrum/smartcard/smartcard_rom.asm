@@ -203,7 +203,7 @@ read_packet_pointers:
         ld      d,a
         ret
 
-et_ports:          
+set_ports:          
         push    af
         push    bc                                      
         dec     de                                      

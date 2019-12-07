@@ -16,8 +16,17 @@ switch_out_rom      equ 0
 screen_mem          equ $4000
 
 sram_loc            equ $2000
-sram_stack          equ sram_loc+$1000
-comm_stack          equ sram_loc+$1800
+sram_stack          equ sram_loc + $1000
+comm_stack          equ sram_loc + $1800
+
+pkt_cmd_start       equ $fe
+pkt_cmd_wait        equ $ff
+
+cmd_load_regs       equ $a0
+cmd_load_data       equ $aa
+cmd_set_ports       equ $bb
+cmd_load_page_data  equ $cc
+cmd_restart         equ $80
 
 ;---------------------------------------------------------------------------------------------
 
@@ -194,7 +203,31 @@ read_packet_pointers:
         ld      d,a
         ret
 
+et_ports:          
+        push    af
+        push    bc                                      
+        dec     de                                      
+        inc     d                                       
+        inc     e                                       
+_proc_port:                               
+        call    spi_read_write
+        ld      c, a
+        call    spi_read_write
+        ld      b, a
+        call    spi_read_write
+        out     (c), a
 
+        dec     e                       ; LSB loop
+        dec     e                       ; LSB loop
+        dec     e                       ; LSB loop
+        jp      nz, _proc_port                       
+        
+        dec     d                       ; MSB loop      
+        jp      nz, _proc_port                       
+
+        pop     bc                                      
+        pop     af
+        ret
 
 intr:
         push    af
@@ -214,16 +247,16 @@ _redo:  push    de
         call    request_work
 _have_response:
         call    spi_read_write
-        cp      $ff
+        cp      pkt_cmd_wait
         jr      nz, _ndone
         pop     de
         jp      _done
 _ndone:
-        cp      $fe
+        cp      pkt_cmd_start
         jr      nz, _have_response
         
         call    spi_read_write
-        cp      $a0
+        cp      cmd_load_regs
         jr      nz, _not_reg_xfer
         ; do reg xfer
         call    read_packet_pointers
@@ -238,7 +271,20 @@ _ndone:
         jr      _done
 
 _not_reg_xfer:
-        cp      $aa
+        cp      cmd_set_ports
+        jr      nz, _not_set_ports
+        ; set ports
+        call    read_packet_pointers
+        call    set_ports
+        call    spi_read_write
+        call    spi_read_write
+        call    spi_read_write
+        call    ack_work
+        pop     de
+        jr      _done
+
+_not_set_ports:
+        cp      cmd_load_data
         jr      nz, _not_bulk_xfer
         ; do bulk xfer
         call    read_packet_pointers
@@ -251,7 +297,7 @@ _not_reg_xfer:
         jr		_done
 
 _not_bulk_xfer:
-        cp      $80
+        cp      cmd_restart
         jr      nz, _not_start_game
         call    read_packet_pointers
         call    ack_work

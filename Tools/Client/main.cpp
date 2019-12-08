@@ -621,6 +621,18 @@ int main(int argc, const char * argv[])
             {
                 c.write(make_smartlink_action(1));
             }
+            if(s=="port")
+            {
+                int address;
+                uint8_t value;
+                cin >> address >> value;
+                shared_ptr<vector<uint8_t>> payload;
+                payload = make_payload(0xbb, 0, 3);
+                payload->push_back(address & 0xff);
+                payload->push_back(address >> 8);
+                payload->push_back(value);
+                c.write(payload);
+            }
             if (s == "data")
             {
                 string file_to_load;

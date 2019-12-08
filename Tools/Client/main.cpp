@@ -425,9 +425,9 @@ vector<shared_ptr<vector<uint8_t>>> send_snapshot(string snapshot_to_load)
 
     // Get the value at (SP) and decrement SP twice, this is so we can send SP as register data to the spectrum and have a uniform executor.
     // .SNA files store the PC at the current SP.
-    uint16_t *pStackPointer =  reinterpret_cast<uint16_t*>(snapshotData.data() + 17);
-    uint16_t programCounter = *reinterpret_cast<uint16_t*>(snapshotData.data() + 27 + *pStackPointer);
-    pStackPointer -= 2;
+    uint16_t *pStackPointer =  reinterpret_cast<uint16_t*>(snapshotData.data() + 23);
+    uint16_t programCounter = *reinterpret_cast<uint16_t*>(snapshotData.data() + 27 + *pStackPointer - 0x4000);
+    *pStackPointer += 2;
 
     // register details payload
     payload = make_payload(0xa0, 0, 29);

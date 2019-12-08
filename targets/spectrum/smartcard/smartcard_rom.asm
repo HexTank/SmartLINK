@@ -12,7 +12,7 @@ spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
 sinclair_rom_bank   equ 14
-switch_out_rom      equ 0
+switch_out_rom      equ 1
 screen_mem          equ $4000
 
 sram_loc            equ $2000
@@ -124,6 +124,9 @@ not_im2b
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
         if switch_out_rom
+                push    hl
+                ld      hl,(sna_header+27)
+                ex      (sp),hl             ; put PC at the top of stack
                 ei                          ; Enable interrupts before restart
                 jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
         else
@@ -139,6 +142,9 @@ irq_offb
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
         if switch_out_rom
+                push    hl
+                ld      hl,(sna_header+27)
+                ex      (sp),hl             ; put PC at the top of stack
                 jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
         else
 rdy:    

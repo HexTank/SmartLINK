@@ -46,10 +46,10 @@ cmd_restart         equ $80
 
 ;---------------------------------------------------------------------------------------------
 	
-        org     $72
-        retn
-        retn
-        retn
+        org     $70
+        jp      $4000               ; retn
+        jp      $4000               ; retn
+        jp      $4000               ; retn
 
 ;--------- RESTORE REGISTERS AND RESTART 48K SNAPSHOT ----------------------------------------
 
@@ -65,15 +65,24 @@ cmd_restart         equ $80
 
 restart_snapshot:
         if switch_out_rom
+                ; push the following opcode to the begining of video memory just as a dynamic jump as playing with stack in z80 files might break them
+                ld      hl,rst_orig_begin
+	            ld      de,screen_mem
+	            ld      bc,rst_end-rst_orig_begin
+	            ldir
+                ; setup the jmp PC in video memory
+                ld      bc, (sna_header+27)
+                ld      ((rst_pc_val - rst_orig_begin) + screen_mem), bc
+
                 ld      bc,rom_select_port  ; set the swap-ROM bit (waits for read from addr $xx72)
                 in      a,(c)
                 or      $40
                 out     (c),a
         else        
                 ; push the following opcode to the begining of video memory so when we execute we patch out our ROM.
-                ld      hl,rst_begin
+                ld      hl,rst_cust_begin
 	            ld      de,screen_mem
-	            ld      bc,rst_end-rst_begin
+	            ld      bc,rst_end-rst_cust_begin
 	            ldir
                 ; store of the value needed to switch off sram
                 ld      bc,sram_bank_port
@@ -82,7 +91,7 @@ restart_snapshot:
                 ld      (saved_sram),a
                 ; setup the jmp PC in video memory
                 ld      bc, (sna_header+27)
-                ld      ((rst_pc_val - rst_begin) + screen_mem), bc
+                ld      ((rst_pc_val - rst_cust_begin) + screen_mem), bc
         endif
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
         halt                        ; (to absorb any pending IRQ)
@@ -124,34 +133,28 @@ not_im2b
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
         if switch_out_rom
-                push    hl
-                ld      hl,(sna_header+27)
-                ex      (sp),hl             ; put PC at the top of stack
                 ei                          ; Enable interrupts before restart
-                jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
+                jp      $70                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
         else
                 jr      rdy
         endif
 irq_offb
         if !switch_out_rom
             ld      a,$f3
-            ld      (rst_ei_val - rst_begin + screen_mem),a    ; di
+            ld      (rst_ei_val - rst_cust_begin + screen_mem),a    ; di
         endif
 
         ld      sp,sna_header+21    ; AF reg
         pop     af
         ld      sp,(sna_header+23)  ; SP reg		
         if switch_out_rom
-                push    hl
-                ld      hl,(sna_header+27)
-                ex      (sp),hl             ; put PC at the top of stack
-                jp      $72                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
+                jp      $70                 ; restart program with RETN @ $72 (switches to Spectrum ROM)			
         else
 rdy:    
                 ; swapping out to  real spectrum ROM mean we can no longer page in, so try and use a mirror of the spectrum ROM
                 ; and copy some restoration code at the start of vmem to put the snapshot in the state it expects before execution.
-                ld      ((rst_bc_val - rst_begin) + screen_mem), bc
-                ld      ((rst_a_val - rst_begin) + screen_mem), a
+                ld      ((rst_bc_val - rst_cust_begin) + screen_mem), bc
+                ld      ((rst_a_val - rst_cust_begin) + screen_mem), a
                 ld      bc,sram_bank_port
                 ld      a,(saved_sram)
                 out     (c),a
@@ -512,13 +515,13 @@ slink_image:    incbin  "smartlink.scr.zx7"
 ; -- Code to be placed at the top of vmem for restoring snapshot registers before execution
 ; --------------------------------------------------------------------------------------------
 
-rst_begin:      db      $ed, $79    ; out   (c),a
+rst_cust_begin: db      $ed, $79    ; out   (c),a       - start point when paging custom roms, not paging out / turning off smart card
                 db      $01         ; ld    bc
 rst_bc_val:     db      $00, $00    ;         ,xxxx
                 db      $3e         ; ld    a,
 rst_a_val:      db      $00         ;         xx
 rst_ei_val:     db      $fb         ; ei
-                db      $c3         ; jp
+rst_orig_begin: db      $c3         ; jp                - start point when paging original spectrum rom / turning off smart card
 rst_pc_val:     db      $00, $00    ;         ,xxxx
 rst_end:
 

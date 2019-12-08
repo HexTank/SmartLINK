@@ -79,7 +79,7 @@ restart_snapshot:
                 ld      bc,sram_bank_port
                 in      a,(c)
                 and     $70
-                ld      (rst_end),a
+                ld      (saved_sram),a
                 ; setup the jmp PC in video memory
                 ld      bc, (sna_header+27)
                 ld      ((rst_pc_val - rst_begin) + screen_mem), bc
@@ -147,7 +147,7 @@ rdy:
                 ld      ((rst_bc_val - rst_begin) + screen_mem), bc
                 ld      ((rst_a_val - rst_begin) + screen_mem), a
                 ld      bc,sram_bank_port
-                ld      a,(rst_end)
+                ld      a,(saved_sram)
                 out     (c),a
                 ld      bc,rom_select_port
                 ld      a,sinclair_rom_bank
@@ -529,7 +529,7 @@ org sram_loc:
                 org     ($+255) & $ff00
 
 saved_sp:       dw      0
-        	
+saved_sram:     db      0        	
 sna_header:     ds      32,0        ;this MUST be located at start of a page so that there's no Read @ $xx72
 tempchar:       ds      8,0
 scroll_pos:     dw      0,0

@@ -12,7 +12,7 @@ spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
 sinclair_rom_bank   equ 14
-switch_out_rom      equ 1
+switch_out_rom      equ 0
 screen_mem          equ $4000
 
 sram_loc            equ $2000
@@ -271,6 +271,7 @@ _ndone:
         call    read_packet_pointers
         ld      hl, sna_header
         call    bulk_read_from_spi
+        call    spi_read_write
         call    ack_work
         pop     de
         ld      d,1
@@ -282,6 +283,7 @@ _not_reg_xfer:
         ; set ports
         call    read_packet_pointers
         call    set_ports
+        call    spi_read_write
         call    ack_work
         pop     de
         jr      _done
@@ -292,6 +294,7 @@ _not_set_ports:
         ; do bulk xfer
         call    read_packet_pointers
         call    bulk_read_from_spi
+        call    spi_read_write
         call    ack_work
         pop     de
         jr		_done
@@ -301,6 +304,7 @@ _not_bulk_xfer:
         jr      nz, _not_start_game
         call    read_packet_pointers
         call    ack_work
+        call    spi_read_write
         jp      restart_snapshot
 _not_start_game:
         pop     de
@@ -395,6 +399,7 @@ work_loop:
         inc     hl
         call    spi_read_write
         djnz    work_loop
+        call    spi_read_write
         ret
 
 show_logo:

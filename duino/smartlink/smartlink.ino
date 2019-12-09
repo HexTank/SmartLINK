@@ -228,7 +228,7 @@ void __irq_spi1(void)
         }
         data=0xff;
     } 
-    if(command_buffer!=cmdpacket)
+    else
     {
         data = command_buffer[command_buffer_index++];
         if(command_buffer_index==command_buffer_size)

@@ -518,16 +518,15 @@ sd_ack:         db      $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$7f,$01,$00,$00,$00,$35 
 ; SRAM data
 ; --------------------------------------------------------------------------------------------
 
-org sram_loc:
-                org     ($+255) & $ff00
+                org     sram_loc
 
-saved_sp:       dw      0
-saved_sram:     db      0        	
 sna_header:     ds      32,0        ;this MUST be located at start of a page so that there's no Read @ $xx72
-tempchar:       ds      8,0
+saved_sp:       dw      0
+saved_sram:     db      0
+
+tempchar:       ds      8,0         ;vars for scroller
 scroll_pos:     dw      0,0
 pix_count:      db      0,0
-sram_restore:   db      $00         ; intentionally after rst_end - used to store byte needed to disable sram without affecting flags later on.
 
 ; --------------------------------------------------------------------------------------------
 

@@ -131,8 +131,7 @@ struct SmartLINK_Regs : SNA_Regs
 
 struct Z80_V1_Shared_Regs
 {
-    uint8_t a;
-    uint8_t f;
+    uint16_t af;
     uint16_t bc;
     uint16_t hl;
     uint16_t pc;    // 0 if v2 or v3
@@ -147,8 +146,7 @@ struct Z80_V1_Shared_Regs
     uint16_t _bc;
     uint16_t _de;
     uint16_t _hl;
-    uint8_t _a;
-    uint8_t _f;
+    uint8_t _af;
     uint16_t iy;
     uint16_t ix;
     uint8_t ei;
@@ -565,7 +563,7 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     outRegs._hl = inRegs->_hl;
     outRegs._de = inRegs->_de;
     outRegs._bc = inRegs->_bc;
-    outRegs._af = (inRegs->_f << 8) | inRegs->_a;
+    outRegs._af = inRegs->_af;
     outRegs.hl = inRegs->hl;
     outRegs.de = inRegs->de;
     outRegs.bc = inRegs->bc;
@@ -573,7 +571,7 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     outRegs.ix = inRegs->ix;
     outRegs.ei = inRegs->ei;
     outRegs.r = inRegs->r;
-    outRegs.af = (inRegs->f << 8) | inRegs->a;
+    outRegs.af = inRegs->af;
     outRegs.sp = inRegs->sp;
     outRegs.im = inRegs->im;
     outRegs.pc = isV1 ? inRegs->pc : static_cast<Z80_V2_Shared_Regs*>(inRegs)->_pc; // v2 has pc address for all subsequent versions.

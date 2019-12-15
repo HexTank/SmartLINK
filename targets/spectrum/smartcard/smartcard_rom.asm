@@ -96,8 +96,17 @@ restart_snapshot:
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
         halt                        ; (to absorb any pending IRQ)
         di
-       
 
+        if !switch_out_rom
+            ld      a,(sna_header+20)   ; R reg
+            sub     3                                              ; to adjust for ld a, ei and jp instruction in screen memeory
+            and     $7f
+            ld      b,a
+            ld      a,(sna_header+20)   ; R reg
+            and     $80
+            or      b
+            ld      ((rst_r_val - rst_cust_begin) + screen_mem),a    ; for ld  r,a
+        endif
 
         ld      a,(sna_header)      ; I reg
         ld      i,a
@@ -110,19 +119,6 @@ restart_snapshot:
         ex      af,af'
         pop     hl                  ; HL,DE,BC,IY,IX
         pop     de
-
-        if !switch_out_rom
-            ld      a,(sna_header+20)   ; R reg
-            sub     4                                              ; to adjust for ld a, ei and jp instruction in screen memeory
-            and     $7f
-            ld      b,a
-            ld      a,(sna_header+20)   ; R reg
-            and     $80
-            or      b
-            ld      ((rst_r_val - rst_cust_begin) + screen_mem),a    ; for ld  r,a
-        endif
-
-
 
         pop     bc
         pop     iy

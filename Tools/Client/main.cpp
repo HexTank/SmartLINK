@@ -547,6 +547,59 @@ vector<shared_ptr<vector<uint8_t>>> send_snapshot(string snapshot_to_load)
     return payloads;
 }
 
+void decompress_z80_block(uint16_t spectrumAddress, uint16_t dataSize, bool compressed, const std::vector<char>::iterator dataBegin, const std::vector<char>::iterator dataEnd, vector<shared_ptr<vector<uint8_t>>> &payloads)
+{
+    shared_ptr<vector<uint8_t>> payload;
+    std::vector<uint8_t> decompressedData(dataSize);
+    auto inData = dataBegin;
+    auto outData = decompressedData.begin();
+    if (compressed)
+    {
+        while (inData != dataEnd && outData != decompressedData.end())
+        {
+            uint8_t val = *inData++;
+            if (val == 0xed && inData != dataEnd && *inData == static_cast<char>(0xed))
+            {
+                ++inData;
+                uint8_t cnt = *inData++;
+                val = *inData++;
+                while (cnt-- > 0 && outData != decompressedData.end())
+                {
+                    *outData++ = val;
+                }
+            }
+            else
+            {
+                *outData++ = val;
+            }
+        }
+    }
+    else
+    {
+        while (inData != dataEnd && outData != decompressedData.end())
+        {
+            *outData++ = static_cast<uint8_t>(*inData++);
+        }
+    }
+
+    const int blocksize = 9000;
+    std::vector<uint8_t>::iterator inputData = decompressedData.begin();
+    for (int block = 0; block < dataSize / blocksize; ++block)
+    {
+        payload = make_payload(0xaa, spectrumAddress, blocksize);
+        payload->insert(std::end(*payload), inputData, inputData + blocksize);
+        payloads.push_back(payload);
+        spectrumAddress += blocksize;
+        inputData += blocksize;
+    }
+    if (dataSize % blocksize)
+    {
+        payload = make_payload(0xaa, spectrumAddress, dataSize % blocksize);
+        payload->insert(std::end(*payload), inputData, inputData + (dataSize % blocksize));
+        payloads.push_back(payload);
+    }
+}
+
 vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
 {
     vector<shared_ptr<vector<uint8_t>>> payloads;
@@ -591,53 +644,10 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     payload->insert(std::end(*payload), regsAsBuffer.begin(), regsAsBuffer.end());
     payloads.push_back(payload);
 
-    // For now, we just deal with v0 z80s, so we decompress the z80 data in to a 48k buffer.
-    std::vector<uint8_t> decompressedData(48 * 1024);
-    if (inRegs->compressed)
-    {
-        auto inData = snapshotData.begin() + snapshotIndex;
-        auto outData = decompressedData.begin();
-        while (inData != snapshotData.end() && outData != decompressedData.end())
-        {
-            uint8_t val = *inData++;
-            if (val == 0xed && inData != snapshotData.end() && *inData == static_cast<char>(0xed))
-            {
-                ++inData++;
-                uint8_t cnt = *inData++;
-                val = *inData++;
-                while (cnt-- > 0 && outData != decompressedData.end())
-                {
-                    *outData++ = val;
-                }
-            }
-            else
-            {
-                *outData++ = val;
-            }
-        }
-    }
-    else
-    {
-    }
 
-
-    // game data payloads
-    snapshotIndex = 0;
-    const int blocksize = 9000;
-    const int transferAmount = 48 * 1024;
-    for (int block = 0; block < transferAmount / blocksize; ++block)
+    if (isV1)
     {
-        payload = make_payload(0xaa, spectrumAddress, blocksize);
-        payload->insert(std::end(*payload), std::begin(decompressedData) + snapshotIndex, std::begin(decompressedData) + snapshotIndex + blocksize);
-        payloads.push_back(payload);
-        snapshotIndex += blocksize;
-        spectrumAddress += blocksize;
-    }
-    if (transferAmount%blocksize)
-    {
-        payload = make_payload(0xaa, spectrumAddress, transferAmount%blocksize);
-        payload->insert(std::end(*payload), std::begin(decompressedData) + snapshotIndex, std::begin(decompressedData) + snapshotIndex + (transferAmount%blocksize));
-        payloads.push_back(payload);
+        decompress_z80_block(0x4000, 48 * 1024, true, snapshotData.begin() + snapshotIndex, snapshotData.end(), payloads);
     }
 
     // start game payload

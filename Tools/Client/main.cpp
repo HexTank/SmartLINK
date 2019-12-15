@@ -633,8 +633,7 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     outRegs.border = inRegs->border;
 
 
-    int snapshotIndex = sizeof(Z80_V1_Shared_Regs) + (isV1 ? 0 : static_cast<Z80_V2_Shared_Regs*>(inRegs)->headerSize); // v2 has extra header size for all subsequent versions.
-    int spectrumAddress = 0x4000;
+    int snapshotIndex = sizeof(Z80_V1_Shared_Regs) + (isV1 ? 0 : (static_cast<Z80_V2_Shared_Regs*>(inRegs)->headerSize + sizeof(uint16_t))); // v2 has extra header size for all subsequent versions.
     shared_ptr<vector<uint8_t>> payload;
 
     // register details payload
@@ -644,10 +643,45 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     payload->insert(std::end(*payload), regsAsBuffer.begin(), regsAsBuffer.end());
     payloads.push_back(payload);
 
-
     if (isV1)
     {
         decompress_z80_block(0x4000, 48 * 1024, true, snapshotData.begin() + snapshotIndex, snapshotData.end(), payloads);
+    }
+    else
+    {
+        Z80_V2_Shared_Regs *inRegsV2 = static_cast<Z80_V2_Shared_Regs*>(inRegs);
+        std::vector<char>::iterator data = snapshotData.begin() + snapshotIndex;
+        while (data < snapshotData.end())
+        {
+            Z80_Page_Chunk_Header *dataChunkHeader = reinterpret_cast<Z80_Page_Chunk_Header *>(&(*data));
+            if (dataChunkHeader->compressedDataSize == 0xffff)
+            {
+                dataChunkHeader->compressedDataSize = 16384;
+            }
+            std::vector<char>::iterator compressedData = data + offsetof(Z80_Page_Chunk_Header, data);
+            if (inRegsV2->hardwareMode == 0)
+            {
+                switch (dataChunkHeader->pageNumber)
+                {
+                case 4:
+                    decompress_z80_block(0x8000, 16384, true, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
+                    break;
+                case 5:
+                    decompress_z80_block(0xC000, 16384, true, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
+                    break;
+                case 8:
+                    decompress_z80_block(0x4000, 16384, true, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
+                    break;
+                default:
+                    break;
+                }
+            }
+            else if (inRegsV2->hardwareMode == 3)
+            {
+
+            }
+            data += offsetof(Z80_Page_Chunk_Header, data) + dataChunkHeader->compressedDataSize;
+        }
     }
 
     // start game payload

@@ -119,8 +119,17 @@ struct SNA_Regs
 #endif
 ;
 
+struct SmartLINK_Regs : SNA_Regs
+{
+    uint16_t pc;
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
 
-struct Z80_Shared_Regs
+
+struct Z80_V1_Shared_Regs
 {
     uint8_t a;
     uint8_t f;
@@ -151,7 +160,52 @@ struct Z80_Shared_Regs
 #endif
 ;
 
-struct Z80_V1_Regs : Z80_Shared_Regs
+struct Z80_V2_Shared_Regs : Z80_V1_Shared_Regs
+{
+    uint16_t headerSize;
+    uint16_t _pc;
+    uint8_t hardwareMode;
+    uint8_t out_0x7ffd;
+    uint8_t interface1Paged;
+    uint8_t hwModify;
+    uint8_t out_0xfffd;
+    uint8_t ayRegs[16];
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
+
+struct Z80_V3_Shared_Regs : Z80_V2_Shared_Regs
+{
+    uint16_t tStateLow;
+    uint8_t tStateHigh;
+    uint8_t pad;
+    uint8_t mgtPaged;
+    uint8_t multifacePaged;
+    uint8_t rom1st8k;
+    uint8_t rom2nd8k;
+    uint16_t joystickMappings[5];
+    uint16_t namesForMappings[5];
+    uint8_t mgtType;
+    uint8_t diciplePad1;
+    uint8_t diciplePad2;
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
+
+struct Z80_V3_1_Shared_Regs : Z80_V3_Shared_Regs
+{
+    uint8_t out_0x1ffd;
+}
+#ifdef __GNUC__
+    __attribute((packed))
+#endif
+;
+
+struct Z80_V1_Regs : Z80_V1_Shared_Regs
 {
     uint8_t data[1];
 }
@@ -160,14 +214,45 @@ __attribute((packed))
 #endif
 ;
 
-struct SmartLINK_Regs : SNA_Regs
+struct Z80_V2_Regs : Z80_V2_Shared_Regs
 {
-    uint16_t pc;
+    uint8_t data[1];
 }
 #ifdef __GNUC__
-    __attribute((packed))
+__attribute((packed))
 #endif
 ;
+
+struct Z80_V3_Regs : Z80_V3_Shared_Regs
+{
+    uint8_t data[1];
+}
+#ifdef __GNUC__
+__attribute((packed))
+#endif
+;
+
+struct Z80_V3_1_Regs : Z80_V3_1_Shared_Regs
+{
+    uint8_t data[1];
+}
+#ifdef __GNUC__
+__attribute((packed))
+#endif
+;
+
+struct Z80_Page_Chunk_Header
+{
+    uint16_t compressedDataSize;
+    uint8_t pageNumber;
+    uint8_t data[1];
+}
+#ifdef __GNUC__
+__attribute((packed))
+#endif
+;
+
+
 
 #ifdef _MSC_VER
     #pragma pack(pop)
@@ -250,17 +335,17 @@ private:
     {
         serialPort.async_read_some(asio::buffer(read_msg_, max_read_length), [&](const asio::error_code& error, size_t bytes_transferred)
         {
-            cout << "Read : " << bytes_transferred << "bytes" << endl;
+            //cout << "Read : " << bytes_transferred << "bytes" << endl;
             if (!error)
             {
                 if (bytes_transferred > 0 && read_msg_[0] == 0xaa && !write_msgs_.empty())
                 {
-                    cout << "Start next write" << endl;
+                    //cout << "Start next write" << endl;
                     write_start();
                 }
                 if (write_msgs_.empty())
                 {
-                    std::cout << "All done!" << std::endl;
+                    //std::cout << "All done!" << std::endl;
                     unique_lock<mutex> m(transfer_mutex, std::try_to_lock);
                     transferring_ = false;
                     m.unlock();
@@ -299,16 +384,16 @@ private:
 
     void write_start(void)
     {
-        cout << "Write : " << write_msgs_.front().get()->size() << "bytes" << endl;
+        //cout << "Write : " << write_msgs_.front().get()->size() << "bytes" << endl;
         asio::async_write(serialPort, asio::buffer(write_msgs_.front().get()->data(), write_msgs_.front().get()->size()), [&](const asio::error_code& error, size_t bytes_transferred)
         {
-            cout << "Wrote : " << bytes_transferred << "bytes" << endl;
+            //cout << "Wrote : " << bytes_transferred << "bytes" << endl;
             if (!error)
             {
                 write_msgs_.pop_front();
                 if (!write_msgs_.empty())
                 {
-                    std::cout << "Finished writing." << std::endl;
+                    //std::cout << "Finished writing." << std::endl;
                 }
             }
             else
@@ -471,12 +556,10 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     snapshotFile.seekg(0, ios::beg);
     snapshotFile.read(snapshotData.data(), snapshotData.size());
 
-    int snapshotIndex = 0;
-    int spectrumAddress = 0x4000;
-    shared_ptr<vector<uint8_t>> payload;
 
+    Z80_V1_Shared_Regs *inRegs = reinterpret_cast<Z80_V1_Shared_Regs *>(snapshotData.data());
+    const bool isV1 = inRegs->pc != 0;
 
-    Z80_Shared_Regs *inRegs = reinterpret_cast<Z80_Shared_Regs *>(snapshotData.data());
     SmartLINK_Regs outRegs;
     outRegs.i = inRegs->i;
     outRegs._hl = inRegs->_hl;
@@ -493,16 +576,20 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     outRegs.af = (inRegs->f << 8) | inRegs->a;
     outRegs.sp = inRegs->sp;
     outRegs.im = inRegs->im;
-    outRegs.pc = inRegs->pc;
+    outRegs.pc = isV1 ? inRegs->pc : static_cast<Z80_V2_Shared_Regs*>(inRegs)->_pc; // v2 has pc address for all subsequent versions.
     outRegs.border = inRegs->border;
+
+
+    int snapshotIndex = sizeof(Z80_V1_Shared_Regs) + (isV1 ? 0 : static_cast<Z80_V2_Shared_Regs*>(inRegs)->headerSize); // v2 has extra header size for all subsequent versions.
+    int spectrumAddress = 0x4000;
+    shared_ptr<vector<uint8_t>> payload;
 
     // register details payload
     auto const ptr = reinterpret_cast<uint8_t*>(&outRegs);
     std::vector<uint8_t> regsAsBuffer(ptr, ptr + sizeof(outRegs));
-    payload = make_payload(0xa0, 0, 29);
+    payload = make_payload(0xa0, 0, static_cast<uint16_t>(regsAsBuffer.size()));
     payload->insert(std::end(*payload), regsAsBuffer.begin(), regsAsBuffer.end());
     payloads.push_back(payload);
-    snapshotIndex += sizeof(Z80_Shared_Regs);
 
     // For now, we just deal with v0 z80s, so we decompress the z80 data in to a 48k buffer.
     std::vector<uint8_t> decompressedData(48 * 1024);

@@ -97,6 +97,8 @@ restart_snapshot:
         halt                        ; (to absorb any pending IRQ)
         di
        
+
+
         ld      a,(sna_header)      ; I reg
         ld      i,a
         ld      sp,sna_header+1     ; HL',DE',BC',AF'
@@ -108,11 +110,27 @@ restart_snapshot:
         ex      af,af'
         pop     hl                  ; HL,DE,BC,IY,IX
         pop     de
+
+        if !switch_out_rom
+            ld      a,e;(sna_header+20)   ; R reg
+            sub     5                                              ; to adjust for ld a, ei and jp instruction in screen memeory
+            and     $7f
+            ld      b,a
+            ld      a,e;(sna_header+20)   ; R reg
+            and     $80
+            or      b
+            ld      ((rst_r_val - rst_cust_begin) + screen_mem),a    ; for ld  r,a
+        endif
+
+
+
         pop     bc
         pop     iy
         pop     ix
         ld      a,(sna_header+20)   ; R reg
-        ld      r,a
+        if switch_out_rom
+            ld      r,a
+        endif
         ld      a,(sna_header+25)   ; interrupt mode: 0, 1, or 2 (already in IM 1)
         or      a
         jr      nz,not_im0b
@@ -507,6 +525,10 @@ slink_image:    incbin  "smartlink.scr.zx7"
 rst_cust_begin: db      $ed, $79    ; out   (c),a       - start point when paging custom roms, not paging out / turning off smart card
                 db      $01         ; ld    bc
 rst_bc_val:     db      $00, $00    ;         ,xxxx
+                db      $3e         ; ld    a,
+rst_r_val:      db      $00         ;         xx
+                db      $d3, $fe    ; out     (254),a   - set border colour
+                db      $ed, $4f    ; ld    r, a
                 db      $3e         ; ld    a,
 rst_a_val:      db      $00         ;         xx
 rst_ei_val:     db      $fb         ; ei

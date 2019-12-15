@@ -112,11 +112,11 @@ restart_snapshot:
         pop     de
 
         if !switch_out_rom
-            ld      a,e;(sna_header+20)   ; R reg
-            sub     5                                              ; to adjust for ld a, ei and jp instruction in screen memeory
+            ld      a,(sna_header+20)   ; R reg
+            sub     4                                              ; to adjust for ld a, ei and jp instruction in screen memeory
             and     $7f
             ld      b,a
-            ld      a,e;(sna_header+20)   ; R reg
+            ld      a,(sna_header+20)   ; R reg
             and     $80
             or      b
             ld      ((rst_r_val - rst_cust_begin) + screen_mem),a    ; for ld  r,a

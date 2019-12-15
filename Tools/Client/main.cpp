@@ -146,7 +146,7 @@ struct Z80_V1_Shared_Regs
     uint16_t _bc;
     uint16_t _de;
     uint16_t _hl;
-    uint8_t _af;
+    uint16_t _af;
     uint16_t iy;
     uint16_t ix;
     uint8_t ei;

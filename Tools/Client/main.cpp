@@ -558,7 +558,7 @@ void decompress_z80_block(uint16_t spectrumAddress, uint16_t dataSize, bool comp
         while (inData != dataEnd && outData != decompressedData.end())
         {
             uint8_t val = *inData++;
-            if (val == 0xed && inData != dataEnd && *inData == static_cast<char>(0xed))
+            if (val == 0xed && inData != dataEnd && static_cast<uint8_t>(*inData) == 0xed)
             {
                 ++inData;
                 uint8_t cnt = *inData++;
@@ -653,9 +653,11 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
         std::vector<char>::iterator data = snapshotData.begin() + snapshotIndex;
         while (data < snapshotData.end())
         {
+            bool chunkCompressed = true;
             Z80_Page_Chunk_Header *dataChunkHeader = reinterpret_cast<Z80_Page_Chunk_Header *>(&(*data));
             if (dataChunkHeader->compressedDataSize == 0xffff)
             {
+                chunkCompressed = false;
                 dataChunkHeader->compressedDataSize = 16384;
             }
             std::vector<char>::iterator compressedData = data + offsetof(Z80_Page_Chunk_Header, data);
@@ -664,13 +666,13 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
                 switch (dataChunkHeader->pageNumber)
                 {
                 case 4:
-                    decompress_z80_block(0x8000, 16384, true, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
+                    decompress_z80_block(0x8000, 16384, chunkCompressed, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
                     break;
                 case 5:
-                    decompress_z80_block(0xC000, 16384, true, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
+                    decompress_z80_block(0xC000, 16384, chunkCompressed, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
                     break;
                 case 8:
-                    decompress_z80_block(0x4000, 16384, true, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
+                    decompress_z80_block(0x4000, 16384, chunkCompressed, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
                     break;
                 default:
                     break;

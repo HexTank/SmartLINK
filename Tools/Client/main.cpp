@@ -645,7 +645,7 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
 
     if (isV1)
     {
-        decompress_z80_block(0x4000, 48 * 1024, true, snapshotData.begin() + snapshotIndex, snapshotData.end(), payloads);
+        decompress_z80_block(0x4000, 48 * 1024, inRegs->compressed, snapshotData.begin() + snapshotIndex, snapshotData.end(), payloads);
     }
     else
     {

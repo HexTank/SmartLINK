@@ -295,7 +295,7 @@ public:
     void write(DATA data)
     {
         auto start = chrono::steady_clock::now();
-        std::cerr << "Started writing\n";
+        // std::cerr << "Started writing\n";
         unique_lock<mutex> m(transfer_mutex);
         transferring_ = true;
 
@@ -335,17 +335,17 @@ private:
     {
         serialPort.async_read_some(asio::buffer(read_msg_, max_read_length), [&](const asio::error_code& error, size_t bytes_transferred)
         {
-            //cout << "Read : " << bytes_transferred << "bytes" << endl;
+            // cout << "Read : " << bytes_transferred << "bytes" << endl;
             if (!error)
             {
                 if (bytes_transferred > 0 && read_msg_[0] == 0xaa && !write_msgs_.empty())
                 {
-                    //cout << "Start next write" << endl;
+                    // cout << "Start next write" << endl;
                     write_start();
                 }
                 if (write_msgs_.empty())
                 {
-                    //std::cout << "All done!" << std::endl;
+                    std::cout << "All done!" << std::endl;
                     unique_lock<mutex> m(transfer_mutex, std::try_to_lock);
                     transferring_ = false;
                     m.unlock();
@@ -384,16 +384,16 @@ private:
 
     void write_start(void)
     {
-        //cout << "Write : " << write_msgs_.front().get()->size() << "bytes" << endl;
+        // cout << "Write : " << write_msgs_.front().get()->size() << "bytes" << endl;
         asio::async_write(serialPort, asio::buffer(write_msgs_.front().get()->data(), write_msgs_.front().get()->size()), [&](const asio::error_code& error, size_t bytes_transferred)
         {
-            //cout << "Wrote : " << bytes_transferred << "bytes" << endl;
+            // cout << "Written : " << bytes_transferred << "bytes" << endl;
             if (!error)
             {
                 write_msgs_.pop_front();
                 if (!write_msgs_.empty())
                 {
-                    //std::cout << "Finished writing." << std::endl;
+                    // std::cout << "Finished writing." << std::endl;
                 }
             }
             else
@@ -678,11 +678,28 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
                     break;
                 }
             }
-            else if (inRegsV2->hardwareMode == 3)
+            else
             {
-
+                // cout << "Send 128k page " << dataChunkHeader->pageNumber - 3 << endl;
+                payload = make_payload(0xbb, 0, 3);
+                payload->push_back(0xfd);
+                payload->push_back(0x7f);
+                payload->push_back(dataChunkHeader->pageNumber - 3);
+                payloads.push_back(payload);
+                decompress_z80_block(0xc000, 16384, chunkCompressed, compressedData, compressedData + dataChunkHeader->compressedDataSize, payloads);
             }
+        
             data += offsetof(Z80_Page_Chunk_Header, data) + dataChunkHeader->compressedDataSize;
+        
+        }
+
+        if (inRegsV2->hardwareMode == 3 || inRegsV2->hardwareMode == 4 || inRegsV2->hardwareMode == 5 || inRegsV2->hardwareMode == 6 || inRegsV2->hardwareMode == 12)
+        {
+                payload = make_payload(0xbb, 0, 3);
+                payload->push_back(0xfd);
+                payload->push_back(0x7f);
+                payload->push_back(inRegsV2->out_0x7ffd);
+                payloads.push_back(payload);
         }
     }
 

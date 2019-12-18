@@ -94,6 +94,9 @@ restart_snapshot:
                 ; setup the jmp PC in video memory
                 ld      bc, (sna_header+27)
                 ld      ((rst_pc_val - rst_cust_begin) + screen_mem), bc
+                ; setup the rom we want to page out to
+                ld      a, (sna_header+29)
+                ld      ((rst_rom_val - rst_cust_begin) + screen_mem), a
         endif
         ei                          ; wait until just after a Spectrum frame IRQ before restarting snapshot  
         halt                        ; (to absorb any pending IRQ)
@@ -565,18 +568,19 @@ slink_image:    incbin  "smartlink.scr.zx7"
 ; -- Code to be placed at the top of vmem for restoring snapshot registers before execution
 ; --------------------------------------------------------------------------------------------
 
-rst_cust_begin: db      $ed, $79    ; out   (c),a       - start point when paging custom roms, not paging out / turning off smart card
-                db      $01         ; ld    bc
-rst_bc_val:     db      $00, $00    ;         ,xxxx
+rst_cust_begin: db      $3e         ; ld    a,          - start point when paging custom roms, not paging out / turning off smart card
+rst_rom_val:    db      $00         ;         xx
+                db      $ed, $79    ; out   (c),a
+                db      $01         ; ld    bc,
+rst_bc_val:     db      $00, $00    ;         xxxx
                 db      $3e         ; ld    a,
 rst_r_val:      db      $00         ;         xx
-                db      $d3, $fe    ; out     (254),a   - set border colour
                 db      $ed, $4f    ; ld    r, a
                 db      $3e         ; ld    a,
 rst_a_val:      db      $00         ;         xx
 rst_ei_val:     db      $fb         ; ei
 rst_orig_begin: db      $c3         ; jp                - start point when paging original spectrum rom / turning off smart card
-rst_pc_val:     db      $00, $00    ;         ,xxxx
+rst_pc_val:     db      $00, $00    ;         xxxx
 rst_end:
 
 ; --------------------------------------------------------------------------------------------

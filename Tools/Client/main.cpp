@@ -122,6 +122,7 @@ struct SNA_Regs
 struct SmartLINK_Regs : SNA_Regs
 {
     uint16_t pc;
+    uint8_t bank;
 }
 #ifdef __GNUC__
     __attribute((packed))
@@ -631,7 +632,7 @@ vector<shared_ptr<vector<uint8_t>>> send_z80(string snapshot_to_load)
     outRegs.im = inRegs->im;
     outRegs.pc = isV1 ? inRegs->pc : static_cast<Z80_V2_Shared_Regs*>(inRegs)->_pc; // v2 has pc address for all subsequent versions.
     outRegs.border = inRegs->border;
-
+    outRegs.bank = isV1 || static_cast<Z80_V2_Shared_Regs*>(inRegs)->hardwareMode == 0 ? 3 : 0x80;
 
     int snapshotIndex = sizeof(Z80_V1_Shared_Regs) + (isV1 ? 0 : (static_cast<Z80_V2_Shared_Regs*>(inRegs)->headerSize + sizeof(uint16_t))); // v2 has extra header size for all subsequent versions.
     shared_ptr<vector<uint8_t>> payload;

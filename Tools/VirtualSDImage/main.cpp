@@ -102,7 +102,18 @@ _files[] = {
 		0,											// (2)   Date created or last updated.
 		2,											// (2)   Starting cluster number for file. (first two are reserved)
 		16384										// (4)   File size in bytes.
-	}
+	},
+    {
+        // TAP file.
+        { 'S','M','A','R','T','L','N','K' },		// (8)   Filename.
+        { 'T','A','P' },							// (3)   Filename extension.
+        0x21,										// (1)   File attributes. (archive|read_only)		- probably don't need archive flag, only needed for backup, I think.
+        {},											// (10)  Reserved.
+        0,											// (2)   Time created or last updated.
+        0,											// (2)   Date created or last updated.
+        3,											// (2)   Starting cluster number for file. (first two are reserved)
+        0										    // (4)   File size in bytes.
+    }
 };
 #ifdef _MSC_VER
 	#pragma pack(pop)

@@ -11,9 +11,11 @@ sram_bank_port      equ $faf3
 spi_control_port    equ sram_bank_port
 spi_data_port       equ $faf7
 card_cs_bit         equ 6
-sinclair_rom_bank   equ 14
+smartlink_rom_bank  equ 15
+sinclair_rom_bank   equ 3           ; this will be the patched from the Smart Card will have generated
 switch_out_rom      equ 0
 screen_mem          equ $4000
+smartcard_tap_hook  equ $3f80
 
 sram_loc            equ $2000
 sram_stack          equ sram_loc + $1000
@@ -195,9 +197,15 @@ start:
         ld      a,$80
         out     (c),a               ; enable SRAM at $2000, use page 0
         
+        ld hl,  smartcard_tap_hook_begin
+	    ld de,  smartcard_tap_hook
+	    ld bc,  smartcard_tap_hook_end-smartcard_tap_hook_begin
+        ldir
+
         call    show_logo
         
         call    init_scroll
+
         im      1
         ei
 _lop:   halt
@@ -429,6 +437,45 @@ show_logo:
         pop     bc
         pop     af
         ret
+
+
+;---------------------------------------------------------------------------------------------
+;
+;
+;
+;
+;
+;---------------------------------------------------------------------------------------------
+
+smartcard_tap_hook_begin:
+        push    af
+        push    bc
+        push    de
+        push    hl
+
+        ld      bc,rom_select_port
+	    ld      l,smartlink_rom_bank
+	    out     (c),l
+
+        push    de 
+        push    ix
+
+
+_loop:  inc     a
+        and     7
+        out     (254),a
+        jr      _loop
+
+        ld      bc,rom_select_port
+	    ld      l,sinclair_rom_bank
+	    out     (c),l
+
+        pop     hl
+        pop     de
+        pop     bc
+        pop     af
+        jp      (hl)
+smartcard_tap_hook_end:
 
 ;---------------------------------------------------------------------------------------------
 ;
